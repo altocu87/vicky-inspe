@@ -3,7 +3,6 @@ import type { Session } from '@supabase/supabase-js'
 import { supabase } from './lib/supabase'
 import {
   ESTADOS,
-  LABELS,
   diasMinimos,
   fmtCorta,
   label,
@@ -15,7 +14,8 @@ import {
 } from './lib/ordenes'
 import { Login } from './components/Login'
 import { Logo } from './components/Logo'
-import { OrdenCard, ESTADO_ICONO, ESTADO_CLASE } from './components/OrdenCard'
+import { OrdenCard } from './components/OrdenCard'
+import { Estadisticas } from './components/Estadisticas'
 import { OrdenForm } from './components/OrdenForm'
 import { ConfirmDelete } from './components/ConfirmDelete'
 import { COLUMNAS, ColumnasMenu, ListaMovil, OCULTAS_DEF, TablaOrdenes, type Sort, type SortKey } from './components/TablaOrdenes'
@@ -102,6 +102,57 @@ function exportarCsv(rows: Orden[]) {
   setTimeout(() => URL.revokeObjectURL(a.href), 1000)
 }
 
+function SortMenu({ actual, onPick, conTexto }: { actual: string; onPick: (id: string) => void; conTexto?: boolean }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!open) return
+    const h = (e: PointerEvent) => !ref.current?.contains(e.target as Node) && setOpen(false)
+    const k = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false)
+    document.addEventListener('pointerdown', h)
+    document.addEventListener('keydown', k)
+    return () => {
+      document.removeEventListener('pointerdown', h)
+      document.removeEventListener('keydown', k)
+    }
+  }, [open])
+  const act = SORTS_MOVIL.find((s) => s.id === actual)
+  return (
+    <div className="menu-wrap" ref={ref}>
+      {conTexto ? (
+        <button className="btn outlined sm" onClick={() => setOpen((v) => !v)} aria-expanded={open} aria-haspopup="menu">
+          <span className="icon">swap_vert</span>
+          {act?.label ?? 'Ordenar'}
+        </button>
+      ) : (
+        <button className="icon-btn tonal" onClick={() => setOpen((v) => !v)} aria-expanded={open} aria-haspopup="menu" aria-label="Ordenar" title="Ordenar">
+          <span className="icon">swap_vert</span>
+        </button>
+      )}
+      {open && (
+        <div className="menu" role="menu">
+          <span className="menu-title label-m muted">Ordenar por</span>
+          {SORTS_MOVIL.map((s) => (
+            <button
+              key={s.id}
+              role="menuitemradio"
+              aria-checked={s.id === actual}
+              className={`menu-item${s.id === actual ? ' on' : ''}`}
+              onClick={() => {
+                onPick(s.id)
+                setOpen(false)
+              }}
+            >
+              <span className="icon">{s.id === actual ? 'check' : ''}</span>
+              {s.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function App() {
   const [session, setSession] = useState<Session | null | undefined>(undefined)
 
@@ -134,6 +185,23 @@ function Panel({ email }: { email: string }) {
   const [editing, setEditing] = useState<Orden | 'new' | null>(null)
   const [deleting, setDeleting] = useState<Orden | null>(null)
   const [snack, setSnack] = useState<Snack | null>(null)
+  const [buscando, setBuscando] = useState(false)
+  const [pantalla, setPantalla] = useState<'lista' | 'stats'>(() => (window.location.hash === '#estadisticas' ? 'stats' : 'lista'))
+
+  useEffect(() => {
+    const h = () => setPantalla(window.location.hash === '#estadisticas' ? 'stats' : 'lista')
+    window.addEventListener('popstate', h)
+    return () => window.removeEventListener('popstate', h)
+  }, [])
+  function abrirStats() {
+    window.history.pushState(null, '', '#estadisticas')
+    setPantalla('stats')
+    window.scrollTo(0, 0)
+  }
+  function cerrarStats() {
+    if (window.location.hash === '#estadisticas') window.history.back()
+    else setPantalla('lista')
+  }
   const snackTimer = useRef<number | undefined>(undefined)
 
   const showSnack = useCallback((s: Snack) => {
@@ -197,6 +265,7 @@ function Panel({ email }: { email: string }) {
     const v = !ocultarFin
     setOcultarFin(v)
     if (v && filtro === 'FINALIZADA') setFiltro('todos')
+    if (mobile) showSnack({ msg: v ? 'Finalizadas ocultas' : 'Mostrando también las finalizadas' })
   }
 
   function guardada(o: Orden, nueva: boolean) {
@@ -233,42 +302,116 @@ function Panel({ email }: { email: string }) {
     { k: 'sintiempo', label: 'Sin tiempo', n: stats.sintiempo, icon: 'error', cls: 's-venc' },
   ]
 
-  const sortMovil = SORTS_MOVIL.find((s) => s.sort.key === sort.key && s.sort.dir === sort.dir)?.id ?? ''
+  const sortActual = SORTS_MOVIL.find((s) => s.sort.key === sort.key && s.sort.dir === sort.dir)?.id ?? ''
   const verTabla = vista === 'tabla'
+
+  if (pantalla === 'stats')
+    return (
+      <div className="app">
+        <Estadisticas ordenes={ordenes} onBack={cerrarStats} />
+      </div>
+    )
 
   return (
     <div className={`app${verTabla && !mobile ? ' wide' : ''}`}>
       <header className="topbar">
         <div className="brand">
-          <Logo size={48} />
+          <Logo size={mobile ? 42 : 48} />
           <div className="brand-txt">
             <span className="title-l">Inspecciones</span>
             <span className="label-m muted">Seguimiento de órdenes</span>
           </div>
         </div>
+        {mobile ? (
+          <button className="icon-btn tonal stats-btn" onClick={abrirStats} aria-label="Estadísticas" title="Estadísticas">
+            <span className="icon">monitoring</span>
+          </button>
+        ) : (
+          <button className="btn tonal stats-btn" onClick={abrirStats}>
+            <span className="icon">monitoring</span>
+            Estadísticas
+          </button>
+        )}
         <button className="icon-btn tonal" title={`Cerrar sesión (${email})`} aria-label="Cerrar sesión" onClick={() => supabase.auth.signOut()}>
           <span className="icon">logout</span>
         </button>
       </header>
 
-      <section className="hero">
-        <div>
-          <h1 className="display">Órdenes</h1>
-          <p className="body-m muted" style={{ margin: '6px 0 0' }}>
-            {ordenes.length} en total · {stats['EN CURSO'] + stats['PTE ENTREGA']} activas
-          </p>
-        </div>
-        <label className="search">
-          <span className="icon">search</span>
-          <span className="sr-only">Buscar</span>
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar nº, empresa, objeto, tareas…" type="search" enterKeyHint="search" />
-          {q && (
-            <button className="icon-btn" onClick={() => setQ('')} aria-label="Borrar búsqueda">
-              <span className="icon">close</span>
-            </button>
-          )}
-        </label>
-      </section>
+      {mobile ? (
+        buscando ? (
+          <div className="search-m">
+            <label className="search">
+              <button
+                className="icon-btn"
+                aria-label="Cerrar búsqueda"
+                onClick={() => {
+                  setQ('')
+                  setBuscando(false)
+                }}
+              >
+                <span className="icon">arrow_back</span>
+              </button>
+              <span className="sr-only">Buscar</span>
+              <input
+                autoFocus
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder="Nº, empresa, objeto, tareas…"
+                type="search"
+                enterKeyHint="search"
+              />
+              {q && (
+                <button className="icon-btn" onClick={() => setQ('')} aria-label="Borrar búsqueda">
+                  <span className="icon">close</span>
+                </button>
+              )}
+            </label>
+          </div>
+        ) : (
+          <section className="hero-m">
+            <div>
+              <h1 className="display">Órdenes</h1>
+              <p className="body-m muted" style={{ margin: '2px 0 0' }}>
+                {stats['EN CURSO'] + stats['PTE ENTREGA']} activas · {ordenes.length} en total
+              </p>
+            </div>
+            <div className="hero-actions">
+              <button className="icon-btn tonal" onClick={() => setBuscando(true)} aria-label="Buscar" title="Buscar">
+                <span className="icon">search</span>
+              </button>
+              <button
+                className={`icon-btn tonal fin-btn${ocultarFin ? ' on' : ''}`}
+                onClick={toggleFin}
+                aria-pressed={ocultarFin}
+                aria-label={ocultarFin ? 'Mostrar finalizadas' : 'Ocultar finalizadas'}
+                title={ocultarFin ? 'Finalizadas ocultas' : 'Mostrando finalizadas'}
+              >
+                <span className="icon">{ocultarFin ? 'visibility_off' : 'visibility'}</span>
+              </button>
+              <SortMenu actual={sortActual} onPick={(id) => setSort(SORTS_MOVIL.find((s) => s.id === id)!.sort)} />
+            </div>
+          </section>
+        )
+      ) : (
+        <section className="hero">
+          <div>
+            <h1 className="display">Órdenes</h1>
+            <p className="body-m muted" style={{ margin: '6px 0 0' }}>
+              {ordenes.length} en total · {stats['EN CURSO'] + stats['PTE ENTREGA']} activas
+            </p>
+          </div>
+          <label className="search">
+            <span className="icon">search</span>
+            <span className="sr-only">Buscar</span>
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar nº, empresa, objeto, tareas…" type="search" enterKeyHint="search" />
+            {q && (
+              <button className="icon-btn" onClick={() => setQ('')} aria-label="Borrar búsqueda">
+                <span className="icon">close</span>
+              </button>
+            )}
+          </label>
+        </section>
+      )}
 
       <div className="stats">
         {statCards.map((s) => (
@@ -282,52 +425,26 @@ function Panel({ email }: { email: string }) {
         ))}
       </div>
 
-      <div className="toolbar">
-        <div className="chips" role="group" aria-label="Filtrar por estado">
-          {(['todos', ...ESTADOS] as Filtro[])
-            .filter((k) => !(ocultarFin && k === 'FINALIZADA'))
-            .map((k) => (
-              <button key={k} className={`chip ${k === 'todos' ? '' : ESTADO_CLASE[k]}${filtro === k ? ' on' : ''}`} onClick={() => elegirFiltro(k)} aria-pressed={filtro === k}>
-                {filtro === k ? <span className="icon">check</span> : k !== 'todos' && <span className="icon">{ESTADO_ICONO[k]}</span>}
-                {k === 'todos' ? 'Todos' : LABELS[k]}
-              </button>
-            ))}
-        </div>
-
-        <label className="switch-row">
-          <span className="label-l">Ocultar finalizadas</span>
-          <span className="switch">
-            <input type="checkbox" role="switch" checked={ocultarFin} onChange={toggleFin} />
-            <span className="track">
-              <span className="thumb">
-                <span className="icon">{ocultarFin ? 'check' : 'close'}</span>
+      {!mobile && (
+        <div className="toolbar">
+          <label className="switch-row">
+            <span className="label-l">Ocultar finalizadas</span>
+            <span className="switch">
+              <input type="checkbox" role="switch" checked={ocultarFin} onChange={toggleFin} />
+              <span className="track">
+                <span className="thumb">
+                  <span className="icon">{ocultarFin ? 'check' : 'close'}</span>
+                </span>
               </span>
             </span>
-          </span>
-        </label>
+          </label>
 
-        <div className="toolbar-end">
-          {(mobile || !verTabla) && (
-            <label className="sort">
-              <span className="icon">sort</span>
-              <span className="sr-only">Ordenar por</span>
-              <select value={sortMovil} onChange={(e) => setSort(SORTS_MOVIL.find((s) => s.id === e.target.value)!.sort)}>
-                {!sortMovil && <option value="">Personalizado</option>}
-                {SORTS_MOVIL.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
-          {!mobile && verTabla && <ColumnasMenu ocultas={ocultas} setOcultas={setOcultas} />}
-          {!mobile && (
+          <div className="toolbar-end">
+            {!verTabla && <SortMenu actual={sortActual} onPick={(id) => setSort(SORTS_MOVIL.find((s) => s.id === id)!.sort)} conTexto />}
+            {verTabla && <ColumnasMenu ocultas={ocultas} setOcultas={setOcultas} />}
             <button className="icon-btn" title="Exportar a Excel (CSV)" aria-label="Exportar a Excel (CSV)" onClick={() => exportarCsv(visibles)}>
               <span className="icon">download</span>
             </button>
-          )}
-          {!mobile && (
             <div className="seg mini" role="radiogroup" aria-label="Vista">
               <button role="radio" aria-checked={verTabla} className={verTabla ? 'on' : ''} onClick={() => setVista('tabla')} title="Tabla">
                 <span className="icon">table_rows</span>
@@ -338,14 +455,16 @@ function Panel({ email }: { email: string }) {
                 <span className="sr-only">Tarjetas</span>
               </button>
             </div>
-          )}
+          </div>
         </div>
-      </div>
+      )}
 
       {!loading && visibles.length > 0 && (
         <p className="count label-l muted">
           {visibles.length} {visibles.length === 1 ? 'orden' : 'órdenes'}
           {filtro !== 'todos' && ` · ${label(filtro === 'urgentes' ? 'Menos de 30 días' : filtro === 'sintiempo' ? 'Sin tiempo' : filtro)}`}
+          {ocultarFin && ' · sin finalizadas'}
+          {q && ` · «${q}»`}
         </p>
       )}
 

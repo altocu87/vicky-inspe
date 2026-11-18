@@ -167,6 +167,7 @@ export function OrdenForm({ orden, onClose, onSaved, onDelete, onError }: Props)
       fecha_orden: f.fecha_orden,
       fecha_primera_actuacion: f.fecha_primera_actuacion,
       fecha_ultima_actuacion: f.fecha_ultima_actuacion,
+      fecha_cierre: f.estado === 'FINALIZADA' ? f.fecha_cierre : null,
       objeto: t(f.objeto),
       estado_docum: f.estado_docum,
       estado_visita: f.estado_visita,
@@ -234,6 +235,16 @@ export function OrdenForm({ orden, onClose, onSaved, onDelete, onError }: Props)
               <Field id="fo" type="date" label="Fecha de la orden" value={f.fecha_orden} onChange={setTxt('fecha_orden')} />
               <Field id="fpa" type="date" label="1ª actuación" value={f.fecha_primera_actuacion} onChange={setTxt('fecha_primera_actuacion')} />
               <Field id="fua" type="date" label="Última actuación" value={f.fecha_ultima_actuacion} onChange={setTxt('fecha_ultima_actuacion')} />
+              {fin && (
+                <Field
+                  id="fci"
+                  type="date"
+                  label="Fecha de cierre"
+                  value={f.fecha_cierre}
+                  onChange={setTxt('fecha_cierre')}
+                  help="Si la dejas vacía, se pone la de hoy al guardar."
+                />
+              )}
             </div>
             <div className="calc" aria-live="polite">
               <Plazo titulo="Límite 9 meses (calculado)" plazo={plazo9Meses(f)} finalizada={fin} vacio="Indica la 1ª actuación" />

@@ -17,6 +17,7 @@ export interface Orden {
   fecha_orden: string | null
   fecha_primera_actuacion: string | null
   fecha_ultima_actuacion: string | null
+  fecha_cierre: string | null
   objeto: string | null
   estado_docum: EstadoDocum | null
   estado_visita: string | null
@@ -39,6 +40,7 @@ export const ORDEN_VACIA: OrdenInput = {
   fecha_orden: null,
   fecha_primera_actuacion: null,
   fecha_ultima_actuacion: null,
+  fecha_cierre: null,
   objeto: null,
   estado_docum: 'AUN NADA',
   estado_visita: 'SIN VISITA',
