@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { Logo } from './Logo'
 
 export function Login() {
   const [email, setEmail] = useState('')
@@ -20,9 +21,7 @@ export function Login() {
   return (
     <main className="login">
       <form className="login-card" onSubmit={entrar}>
-        <div className="brand-mark">
-          <span className="icon fill">fact_check</span>
-        </div>
+        <Logo size={88} />
         <div>
           <h1 className="headline">Inspecciones</h1>
           <p className="body-m muted" style={{ margin: '4px 0 0' }}>

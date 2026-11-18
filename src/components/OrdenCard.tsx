@@ -3,7 +3,7 @@ import { Plazo } from './Plazo'
 
 export const ESTADO_CLASE: Record<string, string> = {
   'EN CURSO': 'e-curso',
-  'PTE ENTREGA': 'e-sin',
+  'PTE ENTREGA': 'e-pte',
   FINALIZADA: 'e-fin',
 }
 export const ESTADO_ICONO: Record<string, string> = {
@@ -16,7 +16,7 @@ export function OrdenCard({ orden, onOpen, index }: { orden: Orden; onOpen: () =
   const fin = orden.estado === 'FINALIZADA'
   return (
     <button
-      className={`card${fin ? ' finalizada' : ''}`}
+      className={`card ${ESTADO_CLASE[orden.estado]}${fin ? ' finalizada' : ''}`}
       onClick={onOpen}
       style={{ animationDelay: `${Math.min(index, 12) * 30}ms` }}
       aria-label={`Abrir orden ${orden.num_orden} de ${orden.empresa}`}

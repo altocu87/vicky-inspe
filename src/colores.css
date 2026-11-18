@@ -1,0 +1,91 @@
+/* ============ Colores por estado (tonos pastel) ============ */
+:root {
+  --c-curso: #dce6ff;   --on-c-curso: #17398a;  --s-curso: #4f7bea;
+  --c-pte: #ffe1c2;     --on-c-pte: #713c00;    --s-pte: #f08a24;
+  --c-fin: #d3f1de;     --on-c-fin: #155233;    --s-fin: #4caf7a;
+  --c-urg: #ffdce5;     --on-c-urg: #8c1639;    --s-urg: #e04a75;
+  --c-venc: #ffd5cb;    --on-c-venc: #8e1e0b;   --s-venc: #e2553a;
+  --c-todos: #ece4ff;   --on-c-todos: #3f2a85;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --c-curso: #23365f;  --on-c-curso: #d9e3ff;  --s-curso: #86a6ff;
+    --c-pte: #4b3118;    --on-c-pte: #ffdcb9;    --s-pte: #ffb26b;
+    --c-fin: #1d3f2c;    --on-c-fin: #bdeecd;    --s-fin: #7fd6a2;
+    --c-urg: #57202f;    --on-c-urg: #ffd9e2;    --s-urg: #ff8fb0;
+    --c-venc: #5a2219;   --on-c-venc: #ffd6cc;   --s-venc: #ff9a84;
+    --c-todos: #33295a;  --on-c-todos: #e7dcff;
+  }
+}
+
+.e-curso { --c: var(--c-curso); --on-c: var(--on-c-curso); --s: var(--s-curso); }
+.e-pte   { --c: var(--c-pte);   --on-c: var(--on-c-pte);   --s: var(--s-pte); }
+.e-fin   { --c: var(--c-fin);   --on-c: var(--on-c-fin);   --s: var(--s-fin); }
+.s-curso { --c: var(--c-curso); --on-c: var(--on-c-curso); --s: var(--s-curso); }
+.s-pte   { --c: var(--c-pte);   --on-c: var(--on-c-pte);   --s: var(--s-pte); }
+.s-urg   { --c: var(--c-urg);   --on-c: var(--on-c-urg);   --s: var(--s-urg); }
+.s-venc  { --c: var(--c-venc);  --on-c: var(--on-c-venc);  --s: var(--s-venc); }
+
+/* Logo y marca */
+.logo { flex-shrink: 0; display: block; filter: drop-shadow(0 2px 4px rgb(120 60 10 / 0.18)); transition: transform 400ms var(--spring-fast); }
+.brand:hover .logo { transform: rotate(-6deg) scale(1.05); }
+.brand-txt { display: flex; flex-direction: column; line-height: 1.1; }
+.brand-txt .label-m { letter-spacing: 0.02em; }
+.login-card .logo { margin-bottom: 4px; }
+.login {
+  background:
+    radial-gradient(60% 50% at 15% 10%, #ffe6cc, transparent 70%),
+    radial-gradient(50% 50% at 90% 90%, var(--c-curso), transparent 70%),
+    var(--surface);
+}
+@media (prefers-color-scheme: dark) {
+  .login { background: radial-gradient(60% 50% at 15% 10%, #4b3118, transparent 70%), radial-gradient(50% 50% at 90% 90%, var(--c-curso), transparent 70%), var(--surface); }
+}
+
+/* Etiquetas de estado */
+.badge.e-curso, .badge.e-pte, .badge.e-fin { background: var(--c); color: var(--on-c); }
+.badge.e-curso::before, .badge.e-pte::before, .badge.e-fin::before {
+  content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--s); margin-right: 2px;
+}
+.badge.e-curso .icon, .badge.e-pte .icon, .badge.e-fin .icon { display: none; }
+
+/* Totales en pastel */
+.stat.s-curso, .stat.s-pte, .stat.s-urg, .stat.s-venc { background: var(--c); color: var(--on-c); }
+.stat.s-curso .n, .stat.s-pte .n, .stat.s-urg:not(.active) .n, .stat.s-venc:not(.active) .n { color: var(--on-c); }
+.stat .icon.fill {
+  width: 40px; height: 40px; border-radius: 14px; display: grid; place-items: center;
+  background: color-mix(in srgb, var(--s, var(--primary)) 22%, transparent); color: var(--s, var(--primary));
+  transition: border-radius 400ms var(--spring-fast), transform 400ms var(--spring-fast);
+}
+.stat:hover .icon.fill { border-radius: 50%; transform: rotate(-8deg); }
+.stat.active { background: var(--on-c, var(--primary)) !important; color: var(--c, var(--on-primary)) !important; }
+.stat.active .n { color: var(--c, var(--on-primary)) !important; }
+.stat.active .icon.fill { background: color-mix(in srgb, var(--c) 25%, transparent); color: var(--c); }
+
+/* Chips de filtro con color */
+.chip.e-curso.on, .chip.e-pte.on, .chip.e-fin.on { background: var(--c); color: var(--on-c); }
+.chip.e-curso:not(.on) .icon, .chip.e-pte:not(.on) .icon, .chip.e-fin:not(.on) .icon { color: var(--s); }
+.chip:not(.e-curso):not(.e-pte):not(.e-fin).on { background: var(--c-todos); color: var(--on-c-todos); }
+
+/* Filas de la tabla tintadas por estado */
+.xtable tbody tr.e-curso td, .xtable tbody tr.e-pte td { background: color-mix(in srgb, var(--c) 38%, var(--sc-lowest)); }
+.xtable tbody tr.e-curso:hover td, .xtable tbody tr.e-pte:hover td { background: color-mix(in srgb, var(--c) 75%, var(--sc-lowest)); }
+.xtable tbody tr.e-fin:hover td { background: color-mix(in srgb, var(--c) 45%, var(--sc-lowest)); }
+.xtable tbody tr td:first-child { box-shadow: inset 5px 0 0 var(--s, transparent); padding-left: 16px; }
+.xtable tbody tr.e-fin td:first-child { box-shadow: inset 5px 0 0 color-mix(in srgb, var(--s) 45%, transparent); }
+
+/* Lista móvil tintada */
+.mrow.e-curso, .mrow.e-pte { background: color-mix(in srgb, var(--c) 55%, var(--sc-lowest)); }
+.mrow { box-shadow: inset 5px 0 0 var(--s, transparent); padding-left: 18px; }
+.mrow.e-fin { box-shadow: inset 5px 0 0 color-mix(in srgb, var(--s) 45%, transparent); }
+.mrow.e-curso:active, .mrow.e-pte:active { background: var(--c); }
+
+/* Tarjetas tintadas */
+.card.e-curso, .card.e-pte { background: color-mix(in srgb, var(--c) 50%, var(--sc-lowest)); }
+.card.e-curso:hover, .card.e-pte:hover { background: var(--c); }
+.card { box-shadow: inset 0 5px 0 var(--s, transparent); }
+.card.e-fin { box-shadow: inset 0 5px 0 color-mix(in srgb, var(--s) 45%, transparent); }
+
+/* FAB a juego con el logo */
+.fab { background: #ffe1c2; color: #6b3600; }
+@media (prefers-color-scheme: dark) { .fab { background: #6b3e14; color: #ffdcb9; } }

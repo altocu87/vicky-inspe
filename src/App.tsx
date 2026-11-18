@@ -14,7 +14,8 @@ import {
   type Orden,
 } from './lib/ordenes'
 import { Login } from './components/Login'
-import { OrdenCard, ESTADO_ICONO } from './components/OrdenCard'
+import { Logo } from './components/Logo'
+import { OrdenCard, ESTADO_ICONO, ESTADO_CLASE } from './components/OrdenCard'
 import { OrdenForm } from './components/OrdenForm'
 import { ConfirmDelete } from './components/ConfirmDelete'
 import { COLUMNAS, ColumnasMenu, ListaMovil, OCULTAS_DEF, TablaOrdenes, type Sort, type SortKey } from './components/TablaOrdenes'
@@ -226,8 +227,8 @@ function Panel({ email }: { email: string }) {
   }
 
   const statCards: { k: Filtro; label: string; n: number; icon: string; cls?: string }[] = [
-    { k: 'EN CURSO', label: 'En curso', n: stats['EN CURSO'], icon: 'progress_activity' },
-    { k: 'PTE ENTREGA', label: 'Pte. entrega', n: stats['PTE ENTREGA'], icon: 'hourglass_top' },
+    { k: 'EN CURSO', label: 'En curso', n: stats['EN CURSO'], icon: 'progress_activity', cls: 's-curso' },
+    { k: 'PTE ENTREGA', label: 'Pte. entrega', n: stats['PTE ENTREGA'], icon: 'hourglass_top', cls: 's-pte' },
     { k: 'urgentes', label: 'Menos de 30 días', n: stats.urgentes, icon: 'warning', cls: 's-urg' },
     { k: 'sintiempo', label: 'Sin tiempo', n: stats.sintiempo, icon: 'error', cls: 's-venc' },
   ]
@@ -239,10 +240,11 @@ function Panel({ email }: { email: string }) {
     <div className={`app${verTabla && !mobile ? ' wide' : ''}`}>
       <header className="topbar">
         <div className="brand">
-          <div className="brand-mark">
-            <span className="icon fill">fact_check</span>
+          <Logo size={48} />
+          <div className="brand-txt">
+            <span className="title-l">Inspecciones</span>
+            <span className="label-m muted">Seguimiento de órdenes</span>
           </div>
-          <span className="title-l">Inspecciones</span>
         </div>
         <button className="icon-btn tonal" title={`Cerrar sesión (${email})`} aria-label="Cerrar sesión" onClick={() => supabase.auth.signOut()}>
           <span className="icon">logout</span>
@@ -285,7 +287,7 @@ function Panel({ email }: { email: string }) {
           {(['todos', ...ESTADOS] as Filtro[])
             .filter((k) => !(ocultarFin && k === 'FINALIZADA'))
             .map((k) => (
-              <button key={k} className={`chip${filtro === k ? ' on' : ''}`} onClick={() => elegirFiltro(k)} aria-pressed={filtro === k}>
+              <button key={k} className={`chip ${k === 'todos' ? '' : ESTADO_CLASE[k]}${filtro === k ? ' on' : ''}`} onClick={() => elegirFiltro(k)} aria-pressed={filtro === k}>
                 {filtro === k ? <span className="icon">check</span> : k !== 'todos' && <span className="icon">{ESTADO_ICONO[k]}</span>}
                 {k === 'todos' ? 'Todos' : LABELS[k]}
               </button>

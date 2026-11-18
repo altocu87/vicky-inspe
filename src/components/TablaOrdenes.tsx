@@ -228,7 +228,7 @@ export function TablaOrdenes({
           {ordenes.map((o) => (
             <tr
               key={o.id}
-              className={o.estado === 'FINALIZADA' ? 'fin' : ''}
+              className={`${ESTADO_CLASE[o.estado]}${o.estado === 'FINALIZADA' ? ' fin' : ''}`}
               tabIndex={0}
               onClick={() => onOpen(o)}
               onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), onOpen(o))}
@@ -261,7 +261,7 @@ export function ListaMovil({ ordenes, onOpen }: { ordenes: Orden[]; onOpen: (o: 
         const ps = plazoSiguiente(o)
         return (
           <li key={o.id}>
-            <button className={`mrow${fin ? ' fin' : ''}`} onClick={() => onOpen(o)}>
+            <button className={`mrow ${ESTADO_CLASE[o.estado]}${fin ? ' fin' : ''}`} onClick={() => onOpen(o)}>
               <div className="mrow-top">
                 <span className="mrow-emp">{o.empresa}</span>
                 <span className={`badge sm ${ESTADO_CLASE[o.estado]}`}>{label(o.estado)}</span>
