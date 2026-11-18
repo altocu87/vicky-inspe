@@ -5,10 +5,12 @@ import {
   ESTADOS_VISITA,
   LABELS,
   ORDEN_VACIA,
+  SI_NO,
   plazo9Meses,
   plazoSiguiente,
   type Orden,
   type OrdenInput,
+  type SiNo,
 } from '../lib/ordenes'
 import { supabase } from '../lib/supabase'
 import { ESTADO_ICONO } from './OrdenCard'
@@ -29,6 +31,7 @@ function Seg<T extends string>({
   onChange,
   icons,
   clearable,
+  wrap,
 }: {
   label: string
   options: readonly T[]
@@ -36,11 +39,12 @@ function Seg<T extends string>({
   onChange: (v: T | null) => void
   icons?: Record<string, string>
   clearable?: boolean
+  wrap?: boolean
 }) {
   return (
     <div className="seg-wrap" role="radiogroup" aria-label={label}>
       <span className="seg-label">{label}</span>
-      <div className="seg">
+      <div className={`seg${wrap ? ' wrap' : ''}`}>
         {options.map((o) => {
           const on = value === o
           return (
@@ -53,7 +57,7 @@ function Seg<T extends string>({
               onClick={() => onChange(on && clearable ? null : o)}
             >
               {on ? <span className="icon">check</span> : icons && <span className="icon">{icons[o]}</span>}
-              {LABELS[o]}
+              {LABELS[o] ?? o}
             </button>
           )
         })}
@@ -73,6 +77,7 @@ function Field({
   help,
   placeholder,
   autoFocus,
+  trailing,
 }: {
   id: string
   label: string
@@ -84,12 +89,13 @@ function Field({
   help?: string
   placeholder?: string
   autoFocus?: boolean
+  trailing?: React.ReactNode
 }) {
   return (
-    <div className={`field${error ? ' error' : ''}`}>
+    <div className={`field${error ? ' error' : ''}${trailing ? ' has-trailing' : ''}`}>
       <label htmlFor={id}>{label}</label>
       {multiline ? (
-        <textarea id={id} value={value ?? ''} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} rows={3} />
+        <textarea id={id} value={value ?? ''} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} rows={2} />
       ) : (
         <input
           id={id}
@@ -99,16 +105,25 @@ function Field({
           placeholder={placeholder}
           autoFocus={autoFocus}
           aria-invalid={!!error}
+          autoCapitalize={type === 'text' ? 'characters' : undefined}
         />
       )}
+      {trailing}
       {(error || help) && <span className="help">{error || help}</span>}
     </div>
   )
 }
 
+const SUBIDAS: { k: 'comparecencia_subida' | 'doc_subida' | 'claves'; label: string }[] = [
+  { k: 'comparecencia_subida', label: '¿Comparecencia subida?' },
+  { k: 'doc_subida', label: '¿Documentación subida?' },
+  { k: 'claves', label: 'Claves' },
+]
+
 export function OrdenForm({ orden, onClose, onSaved, onDelete, onError }: Props) {
   const ref = useRef<HTMLDialogElement>(null)
-  const inicial: OrdenInput = orden ? { ...orden } : { ...ORDEN_VACIA }
+  const datePick = useRef<HTMLInputElement>(null)
+  const [inicial] = useState<OrdenInput>(() => (orden ? { ...orden } : { ...ORDEN_VACIA }))
   const [f, setF] = useState<OrdenInput>(inicial)
   const [saving, setSaving] = useState(false)
   const [tried, setTried] = useState(false)
@@ -131,25 +146,36 @@ export function OrdenForm({ orden, onClose, onSaved, onDelete, onError }: Props)
     onClose()
   }
 
+  function anadirFechaVisita(iso: string) {
+    if (!iso) return
+    const [y, m, d] = iso.split('-')
+    const txt = `${d}/${m}/${y}`
+    const actual = f.fecha_visita && f.fecha_visita !== 'NO VISITA' ? f.fecha_visita + ' ' : ''
+    set('fecha_visita', actual + txt)
+  }
+
   async function guardar(e: React.FormEvent) {
     e.preventDefault()
     setTried(true)
     if (!f.num_orden.trim() || !f.empresa.trim()) return
     setSaving(true)
+    const t = (v: string | null) => (v && v.trim() ? v.trim() : null)
     const payload = {
-      num_orden: f.num_orden.trim(),
+      num_orden: f.num_orden.trim().toUpperCase(),
       estado: f.estado,
-      empresa: f.empresa.trim(),
+      empresa: f.empresa.trim().toUpperCase(),
       fecha_orden: f.fecha_orden,
       fecha_primera_actuacion: f.fecha_primera_actuacion,
       fecha_ultima_actuacion: f.fecha_ultima_actuacion,
-      docum_aportada: f.docum_aportada,
+      objeto: t(f.objeto),
       estado_docum: f.estado_docum,
       estado_visita: f.estado_visita,
-      fecha_proxima_visita: f.fecha_proxima_visita,
-      visitas_realizadas: f.visitas_realizadas,
-      situacion_general: f.situacion_general,
-      tareas_pendientes: f.tareas_pendientes,
+      fecha_visita: t(f.fecha_visita),
+      situacion_general: t(f.situacion_general),
+      tareas_pendientes: t(f.tareas_pendientes),
+      comparecencia_subida: f.comparecencia_subida,
+      doc_subida: f.doc_subida,
+      claves: f.claves,
     }
     const q = nueva
       ? supabase.from('ordenes').insert(payload).select().single()
@@ -204,14 +230,14 @@ export function OrdenForm({ orden, onClose, onSaved, onDelete, onError }: Props)
               <span className="icon">calendar_month</span>
               <h3 className="title-m">Fechas y plazos</h3>
             </div>
-            <div className="fields">
+            <div className="fields three">
               <Field id="fo" type="date" label="Fecha de la orden" value={f.fecha_orden} onChange={setTxt('fecha_orden')} />
-              <Field id="fpa" type="date" label="Primera actuación" value={f.fecha_primera_actuacion} onChange={setTxt('fecha_primera_actuacion')} />
+              <Field id="fpa" type="date" label="1ª actuación" value={f.fecha_primera_actuacion} onChange={setTxt('fecha_primera_actuacion')} />
               <Field id="fua" type="date" label="Última actuación" value={f.fecha_ultima_actuacion} onChange={setTxt('fecha_ultima_actuacion')} />
             </div>
             <div className="calc" aria-live="polite">
-              <Plazo titulo="Límite 9 meses (calculado)" plazo={plazo9Meses(f)} finalizada={fin} vacio="Indica la primera actuación" />
-              <Plazo titulo="Siguiente actuación (calculado)" plazo={plazoSiguiente(f)} finalizada={fin} vacio="Indica la última actuación" />
+              <Plazo titulo="Límite 9 meses (calculado)" plazo={plazo9Meses(f)} finalizada={fin} vacio="Indica la 1ª actuación" />
+              <Plazo titulo="Límite siguiente actuación (calculado)" plazo={plazoSiguiente(f)} finalizada={fin} vacio="Indica la última actuación" />
             </div>
           </section>
 
@@ -221,19 +247,59 @@ export function OrdenForm({ orden, onClose, onSaved, onDelete, onError }: Props)
               <h3 className="title-m">Documentación</h3>
             </div>
             <Seg label="Estado de la documentación" options={ESTADOS_DOCUM} value={f.estado_docum} onChange={(v) => set('estado_docum', v)} clearable />
-            <Field id="doc" multiline label="Documentación aportada" value={f.docum_aportada} onChange={setTxt('docum_aportada')} placeholder="Un documento por línea" />
+            <Field id="obj" label="Objeto" value={f.objeto} onChange={setTxt('objeto')} placeholder="Ej.: APORTA TODO LO SOLICITADO" />
           </section>
 
           <section className="section">
             <div className="section-title">
               <span className="icon">directions_car</span>
-              <h3 className="title-m">Visitas</h3>
+              <h3 className="title-m">Visita</h3>
             </div>
-            <Seg label="Estado de la visita" options={ESTADOS_VISITA} value={f.estado_visita} onChange={(v) => set('estado_visita', v)} clearable />
-            <div className="fields">
-              <Field id="fpv" type="date" label="Próxima visita" value={f.fecha_proxima_visita} onChange={setTxt('fecha_proxima_visita')} />
-            </div>
-            <Field id="vr" multiline label="Visitas realizadas" value={f.visitas_realizadas} onChange={setTxt('visitas_realizadas')} placeholder="21/10/24: comentario de la visita" />
+            <Seg label="Estado de la visita" options={ESTADOS_VISITA} value={f.estado_visita} onChange={(v) => set('estado_visita', v)} clearable wrap />
+            <Field
+              id="fv"
+              label="Fecha(s) de visita"
+              value={f.fecha_visita}
+              onChange={setTxt('fecha_visita')}
+              placeholder="NO VISITA, 14/04/2025…"
+              help="Puedes escribir varias fechas o notas, o añadir una con el calendario."
+              trailing={
+                <>
+                  <button
+                    type="button"
+                    className="icon-btn field-trailing"
+                    aria-label="Añadir fecha de visita"
+                    title="Añadir fecha"
+                    onClick={() => {
+                      const el = datePick.current
+                      if (!el) return
+                      if ('showPicker' in el) {
+                        try {
+                          el.showPicker()
+                          return
+                        } catch {
+                          /* sigue */
+                        }
+                      }
+                      el.click()
+                    }}
+                  >
+                    <span className="icon">event</span>
+                  </button>
+                  <input
+                    ref={datePick}
+                    type="date"
+                    tabIndex={-1}
+                    aria-hidden
+                    className="hidden-date"
+                    onChange={(e) => {
+                      anadirFechaVisita(e.target.value)
+                      e.target.value = ''
+                    }}
+                  />
+                </>
+              }
+            />
           </section>
 
           <section className="section">
@@ -243,6 +309,21 @@ export function OrdenForm({ orden, onClose, onSaved, onDelete, onError }: Props)
             </div>
             <Field id="sg" multiline label="Situación general" value={f.situacion_general} onChange={setTxt('situacion_general')} />
             <Field id="tp" multiline label="Tareas pendientes" value={f.tareas_pendientes} onChange={setTxt('tareas_pendientes')} />
+          </section>
+
+          <section className="section">
+            <div className="section-title">
+              <span className="icon">cloud_upload</span>
+              <h3 className="title-m">Subidas</h3>
+            </div>
+            <div className="subidas">
+              {SUBIDAS.map((s) => (
+                <Seg<SiNo> key={s.k} label={s.label} options={SI_NO} value={f[s.k]} onChange={(v) => set(s.k, v)} clearable />
+              ))}
+            </div>
+            <p className="body-m muted" style={{ margin: 0 }}>
+              Sin marcar = pendiente.
+            </p>
           </section>
         </div>
 
@@ -261,10 +342,10 @@ export function OrdenForm({ orden, onClose, onSaved, onDelete, onError }: Props)
             </button>
           )}
           <span className="spacer" />
-          <button type="button" className="btn text" onClick={cerrar}>
+          <button type="button" className="btn text hide-mobile" onClick={cerrar}>
             Cancelar
           </button>
-          <button className="btn filled" disabled={saving}>
+          <button className="btn filled save-btn" disabled={saving}>
             <span className="icon">{saving ? 'hourglass_top' : 'save'}</span>
             {saving ? 'Guardando…' : 'Guardar'}
           </button>
