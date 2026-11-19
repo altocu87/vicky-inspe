@@ -243,3 +243,14 @@ export function esquemaPermitido(url: string): boolean {
     return false
   }
 }
+
+/** Campos que la app puede escribir (nunca id, fechas de creación ni created_by) */
+export const CAMPOS_EVENTO = [
+  'titulo', 'tipo', 'fecha', 'fecha_fin', 'todo_el_dia', 'hora_inicio', 'hora_fin', 'ubicacion', 'telefono', 'notas', 'orden_id',
+  'estado', 'avisos', 'rrule', 'exdates', 'serie_id', 'ocurrencia_original', 'origen', 'clave_origen',
+] as const satisfies readonly (keyof EventoInput)[]
+
+/** Deja solo los campos permitidos (por si llega un objeto con más cosas) */
+export function soloCampos<T extends object>(o: T, campos: readonly string[]): Partial<T> {
+  return Object.fromEntries(Object.entries(o).filter(([k]) => campos.includes(k))) as Partial<T>
+}

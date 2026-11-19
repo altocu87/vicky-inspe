@@ -48,3 +48,16 @@ export function proximasVisitas(eventos: readonly Evento[], hoy: string): Map<st
   }
   return m
 }
+
+/**
+ * Semáforo de la «Próxima visita» frente al próximo plazo:
+ * - ok: la visita está programada antes del plazo
+ * - tarde: la visita cae después del plazo
+ * - falta: no hay visita y el plazo vence en menos de 30 días
+ * - nada: ni visita ni prisa
+ */
+export type Semaforo = 'ok' | 'tarde' | 'falta' | 'nada'
+export function semaforoVisita(visita: Pick<Evento, 'fecha'> | undefined, plazo: Pick<PlazoCalc, 'fecha' | 'dias'> | null): Semaforo {
+  if (visita) return plazo && visita.fecha > plazo.fecha ? 'tarde' : 'ok'
+  return plazo && plazo.dias < DIAS_POR_PROGRAMAR ? 'falta' : 'nada'
+}

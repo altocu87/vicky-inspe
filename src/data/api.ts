@@ -5,6 +5,8 @@ import type { Session } from '@supabase/supabase-js'
 import type { Orden } from '../lib/ordenes'
 import type { Festivo } from '../lib/habiles'
 import type { ReglaFila } from '../lib/plazos/reglas'
+import type { Evento, EventoInput, TipoCita } from '../lib/eventos'
+import type { Tarea, TareaInput } from '../lib/tareas'
 
 export type Resultado<T> = { data: T; error: null } | { data: null; error: string }
 
@@ -24,6 +26,23 @@ export interface Backend {
   guardarRegla(r: Partial<ReglaFila> & { id: string }): Promise<string | null>
   activarRegla(id: string, base: boolean, activa: boolean): Promise<string | null>
   eliminarRegla(id: string): Promise<string | null>
+  // ---- Fase 2: visitas y citas (eventos), tareas y tipos de cita ----
+  /** Eventos que se ven entre dos días: los que caen dentro, las series que ya empezaron y sus excepciones */
+  listarEventos(desde: string, hasta: string): Promise<Resultado<Evento[]>>
+  /** Visitas pendientes desde hoy enlazadas a una orden (para «Próxima visita» y «Por programar») */
+  listarVisitasFuturas(hoy: string): Promise<Resultado<Evento[]>>
+  /** Visitas, citas y tareas de una orden */
+  listarAgendaOrden(ordenId: string): Promise<Resultado<{ eventos: Evento[]; tareas: Tarea[] }>>
+  crearEvento(e: EventoInput): Promise<Resultado<Evento>>
+  actualizarEvento(id: string, cambios: Partial<EventoInput>): Promise<Resultado<Evento>>
+  eliminarEvento(id: string): Promise<string | null>
+  /** Tareas con fecha entre dos días, más las pendientes sin fecha o atrasadas */
+  listarTareas(desde: string, hasta: string): Promise<Resultado<Tarea[]>>
+  crearTarea(t: TareaInput): Promise<Resultado<Tarea>>
+  actualizarTarea(id: string, cambios: Partial<TareaInput>): Promise<Resultado<Tarea>>
+  eliminarTarea(id: string): Promise<string | null>
+  listarTipos(): Promise<Resultado<TipoCita[]>>
+  guardarTipo(t: TipoCita): Promise<string | null>
 }
 
 export const MODO_DEMO = import.meta.env.DEV && import.meta.env.VITE_DEMO === '1'
@@ -44,6 +63,8 @@ export function mensajeError(e: { message?: string; code?: string } | null | und
   if (e.code === '42501' || /row-level security|permission denied/i.test(e.message ?? '')) return 'No tienes permiso para esta acción. Vuelve a iniciar sesión.'
   if (e.code === '23505') return 'Ya existe un registro igual.'
   if (e.code === '23514') return 'Algún dato no es válido.'
+  if (e.code === '23503') return 'Falta un dato relacionado (la orden o el tipo de cita ya no existe).'
+  if (e.code === '42P01' || e.code === 'PGRST205') return 'Esta parte aún no está activada en la base de datos.'
   if (/fetch|network/i.test(e.message ?? '')) return 'Sin conexión. Inténtalo de nuevo.'
   return e.message ?? 'Error desconocido'
 }

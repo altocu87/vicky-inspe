@@ -115,3 +115,7 @@ export function cambiosAlHacer(t: Tarea, hoy: string): Partial<TareaInput> {
 
 const PESO: Record<Prioridad, number> = { alta: 0, media: 1, baja: 2 }
 export const pesoPrioridad = (p: Prioridad) => PESO[p]
+
+export const CAMPOS_TAREA = [
+  'titulo', 'notas', 'orden_id', 'vence', 'hora', 'duracion_min', 'prioridad', 'hecha', 'hecha_el', 'repeticion', 'oficina',
+] as const satisfies readonly (keyof TareaInput)[]
