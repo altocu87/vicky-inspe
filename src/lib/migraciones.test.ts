@@ -1,6 +1,7 @@
 // Comprobaciones de seguridad e integridad sobre los ficheros de migración.
 import { describe, expect, it } from 'vitest'
 import { FESTIVOS_ALBACETE } from './festivosAlbacete'
+import { TIPOS_BASE } from './eventos'
 
 const ficheros = import.meta.glob('../../supabase/migrations/*.sql', { query: '?raw', import: 'default', eager: true }) as Record<string, string>
 // Las 3 primeras son anteriores a estas reglas (la 2.ª recreó la tabla cuando estaba vacía)
@@ -45,6 +46,41 @@ describe('migraciones', () => {
       fuente: m[4],
     }))
     expect(enSql).toEqual(FESTIVOS_ALBACETE.map((f) => ({ ...f })))
+  })
+})
+
+describe('migración de la fase 2', () => {
+  const sql = sinComentarios(Object.entries(ficheros).find(([f]) => f.includes('calendario_fase2'))![1]).toLowerCase()
+  it('crea tipos_cita, eventos y tareas con las 4 políticas cada una', () => {
+    for (const t of ['tipos_cita', 'eventos', 'tareas']) {
+      expect(sql).toContain(`create table if not exists public.${t}`)
+      expect([...sql.matchAll(new RegExp(`create policy "[^"]+" on public\\.${t}\\b`, 'g'))]).toHaveLength(4)
+      expect(sql).toMatch(new RegExp(`${t}[^;]*created_by uuid default auth\\.uid\\(\\)|created_by uuid default auth\\.uid\\(\\)`))
+    }
+  })
+  it('no toca la tabla ordenes (solo la referencia)', () => {
+    expect(sql).not.toMatch(/alter table public\.ordenes|update public\.ordenes|insert into public\.ordenes/)
+  })
+  it('los tipos de cita del SQL son los de eventos.ts', () => {
+    const enSql = [...sql.matchAll(/\('([a-z_]+)', '([^']+)', '([a-z_]+)', (\d+)\)/g)].map((m) => m[1])
+    expect(enSql).toEqual(TIPOS_BASE.map((t) => t.id))
+  })
+  it('valida en la base de datos: textos con longitud, estados cerrados y RRULE sin DTSTART', () => {
+    expect(sql).toContain("estado in ('pendiente', 'hecha', 'fallida', 'cancelada')")
+    expect(sql).toContain("rrule !~ 'dtstart'")
+    expect(sql).toMatch(/char_length\(titulo\) between 1 and 200/)
+  })
+})
+
+describe('conversión de fecha_visita (SQL a mano, solo con permiso)', () => {
+  const conv = import.meta.glob('../../supabase/conversiones/*.sql', { query: '?raw', import: 'default', eager: true }) as Record<string, string>
+  const [[nombre, sql]] = Object.entries(conv)
+  const s = sinComentarios(sql).toLowerCase()
+  it('NO está entre las migraciones automáticas', () => expect(nombre).not.toContain('/migrations/'))
+  it('no toca ordenes ni borra nada, y no duplica', () => {
+    expect(s).not.toMatch(/update\s+public\.ordenes|delete\s+from|drop\s+table|truncate|security definer/)
+    expect(s).toContain('on conflict (clave_origen) do nothing')
+    expect(s).toContain('pg_temp.convertir_fecha_visita')
   })
 })
 
