@@ -1,7 +1,7 @@
 # Plan: calendario integrado con las órdenes
 
 > Documento vivo: sirve de memoria entre sesiones. Se actualiza al cerrar cada fase.
-> Estado: **Paso 0. Respuestas recibidas a través de otra sesión (apartado 2 bis), pendientes de que la usuaria las confirme; faltan el correo y el proyecto de Supabase.**
+> Estado: **Paso 0 terminado. Todas las preguntas respondidas; pendiente del visto bueno para empezar la fase 1.**
 
 ## 0. Lo que hay hoy (comprobado el 19-11-2026)
 
