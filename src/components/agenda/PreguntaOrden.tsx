@@ -1,37 +1,51 @@
-// Tras marcar una visita o cita como HECHA o FALLIDA: ¿actualizo la orden?
-// Nunca se cambia nada sin que ella lo confirme. Cada cambio se puede desmarcar.
+// Tras marcar una visita o cita como HECHA o FALLIDA: resultado, detalles de la visita
+// y (si es de una orden) ¿actualizo la orden? Nunca se cambia la orden sin que ella lo confirme.
 import { useState } from 'react'
 import { fmt, fmtCorta } from '../../lib/fechas'
 import { label, type Orden } from '../../lib/ordenes'
-import type { PropuestaOrden, Resultado } from '../../lib/visitaEstado'
+import { hayPropuesta, type PropuestaOrden, type Resultado } from '../../lib/visitaEstado'
 import { Dialogo } from './piezas'
 
 export function PreguntaOrden({
+  titulo,
+  fecha,
+  notasIniciales,
   orden,
   propuesta: p,
   resultado,
+  esVisita = true,
   onClose,
   onAplicar,
 }: {
-  orden: Orden
-  propuesta: PropuestaOrden
+  esVisita?: boolean
+  /** Nombre de la visita o cita */
+  titulo: string
+  fecha: string
+  notasIniciales: string | null
+  orden?: Orden
+  propuesta: PropuestaOrden | null
   resultado: Resultado
   onClose: () => void
-  onAplicar: (cambios: Partial<Orden>) => Promise<boolean>
+  /** Guarda los detalles (si cambian) y los cambios marcados en la orden; devuelve false si falla */
+  onAplicar: (notas: string | null, cambios: Partial<Orden>) => Promise<boolean>
 }) {
-  const [ultima, setUltima] = useState(!!p.ultima)
-  const [primera, setPrimera] = useState(!!p.primera)
-  const [estado, setEstado] = useState(!!p.estadoVisita)
+  const [notas, setNotas] = useState(notasIniciales ?? '')
+  const [ultima, setUltima] = useState(!!p?.ultima)
+  const [primera, setPrimera] = useState(!!p?.primera)
+  const [estado, setEstado] = useState(!!p?.estadoVisita)
   const [guardando, setGuardando] = useState(false)
-  const nada = !(ultima || primera || estado)
+  const conOrden = !!(orden && p && hayPropuesta(p))
 
   async function aplicar() {
     const c: Partial<Orden> = {}
-    if (ultima && p.ultima) c.fecha_ultima_actuacion = p.ultima.despues
-    if (primera && p.primera) c.fecha_primera_actuacion = p.primera.despues
-    if (estado && p.estadoVisita) c.estado_visita = p.estadoVisita.despues
+    if (conOrden) {
+      if (ultima && p!.ultima) c.fecha_ultima_actuacion = p!.ultima.despues
+      if (primera && p!.primera) c.fecha_primera_actuacion = p!.primera.despues
+      if (estado && p!.estadoVisita) c.estado_visita = p!.estadoVisita.despues
+    }
+    const n = notas.trim() ? notas.trim().slice(0, 4000) : null
     setGuardando(true)
-    const ok = await onAplicar(c)
+    const ok = await onAplicar(n !== (notasIniciales ?? null) ? n : notasIniciales, c)
     setGuardando(false)
     if (ok) onClose()
   }
@@ -41,52 +55,75 @@ export function PreguntaOrden({
       pequeno
       hoja
       onClose={onClose}
-      titulo="¿Actualizo la orden?"
+      titulo={`${esVisita ? 'Visita' : 'Cita'} ${resultado === 'hecha' ? 'hecha' : 'fallida'}`}
       pie={
         <>
           <button type="button" className="btn text" onClick={onClose}>
-            No, déjala igual
+            {conOrden ? 'No cambiar nada más' : 'Cerrar'}
           </button>
           <span className="spacer" />
-          <button type="button" className="btn filled" disabled={nada || guardando} onClick={aplicar}>
+          <button type="button" className="btn filled" disabled={guardando} onClick={aplicar}>
             <span className="icon">save</span>
-            Actualizar
+            Guardar
           </button>
         </>
       }
     >
-      <p className="body-m">
-        La actuación de <strong>{orden.empresa}</strong> ({orden.num_orden}) ha quedado <strong>{resultado === 'hecha' ? 'hecha' : 'fallida'}</strong>. Marca
-        lo que quieres cambiar en la orden:
+      <p className={`resultado-cab ${resultado === 'hecha' ? 'ok' : 'ko'}`}>
+        <span className="icon fill">{resultado === 'hecha' ? 'check_circle' : 'cancel'}</span>
+        <span>
+          <strong>{orden ? orden.empresa : titulo}</strong>
+          {orden && <span className="mono"> · {orden.num_orden}</span>}
+          <br />
+          {fmt(fecha)} · {resultado === 'hecha' ? 'hecha' : 'fallida'}
+        </span>
       </p>
-      <div className="pregunta-lista">
-        {p.ultima && (
-          <label className="aj-check grande">
-            <input type="checkbox" checked={ultima} onChange={(e) => setUltima(e.target.checked)} />
-            <span>
-              Última actuación: {p.ultima.antes ? fmtCorta(p.ultima.antes) : '—'} → <strong>{fmt(p.ultima.despues)}</strong>
-              <span className="help muted"> (se recalcula el plazo siguiente)</span>
-            </span>
-          </label>
-        )}
-        {p.primera && (
-          <label className="aj-check grande">
-            <input type="checkbox" checked={primera} onChange={(e) => setPrimera(e.target.checked)} />
-            <span>
-              1.ª actuación (estaba vacía) → <strong>{fmt(p.primera.despues)}</strong>
-              <span className="help muted"> (empieza a contar el límite de 9 meses)</span>
-            </span>
-          </label>
-        )}
-        {p.estadoVisita && (
-          <label className="aj-check grande">
-            <input type="checkbox" checked={estado} onChange={(e) => setEstado(e.target.checked)} />
-            <span>
-              Estado de la visita: {label(p.estadoVisita.antes) || '—'} → <strong>{label(p.estadoVisita.despues)}</strong>
-            </span>
-          </label>
-        )}
+      <div className="field">
+        <label htmlFor="res-notas">Detalles de la {esVisita ? 'visita' : 'cita'} (opcional)</label>
+        <textarea
+          id="res-notas"
+          rows={3}
+          maxLength={4000}
+          value={notas}
+          onChange={(e) => setNotas(e.target.value)}
+          placeholder={resultado === 'hecha' ? 'Qué se vio, qué documentación se pidió…' : 'Por qué no se pudo: cerrado, no estaba el responsable…'}
+        />
       </div>
+      {conOrden && (
+        <>
+          <p className="body-m" style={{ margin: 0 }}>
+            ¿Actualizo la orden? Marca lo que quieres cambiar:
+          </p>
+          <div className="pregunta-lista">
+            {p!.ultima && (
+              <label className="aj-check grande">
+                <input type="checkbox" checked={ultima} onChange={(e) => setUltima(e.target.checked)} />
+                <span>
+                  Última actuación: {p!.ultima.antes ? fmtCorta(p!.ultima.antes) : '—'} → <strong>{fmt(p!.ultima.despues)}</strong>
+                  <span className="help muted"> (se recalcula el plazo siguiente)</span>
+                </span>
+              </label>
+            )}
+            {p!.primera && (
+              <label className="aj-check grande">
+                <input type="checkbox" checked={primera} onChange={(e) => setPrimera(e.target.checked)} />
+                <span>
+                  1.ª actuación (estaba vacía) → <strong>{fmt(p!.primera.despues)}</strong>
+                  <span className="help muted"> (empieza a contar el límite de 9 meses)</span>
+                </span>
+              </label>
+            )}
+            {p!.estadoVisita && (
+              <label className="aj-check grande">
+                <input type="checkbox" checked={estado} onChange={(e) => setEstado(e.target.checked)} />
+                <span>
+                  Estado de la visita: {label(p!.estadoVisita.antes) || '—'} → <strong>{label(p!.estadoVisita.despues)}</strong>
+                </span>
+              </label>
+            )}
+          </div>
+        </>
+      )}
     </Dialogo>
   )
 }

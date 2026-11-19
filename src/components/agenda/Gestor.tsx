@@ -40,7 +40,7 @@ export function GestorAgenda({
 }) {
   const ag = useAgenda()
   const [abierto, setAbierto] = useState<Abierto>(null)
-  const [pregunta, setPregunta] = useState<{ orden: Orden; propuesta: PropuestaOrden; resultado: Resultado } | null>(null)
+  const [pregunta, setPregunta] = useState<{ evento: Evento; fecha: string; orden?: Orden; propuesta: PropuestaOrden | null; resultado: Resultado } | null>(null)
   const porId = useMemo(() => new Map(ordenes.map((o) => [o.id, o])), [ordenes])
   const cerrar = () => setAbierto(null)
 
@@ -56,11 +56,10 @@ export function GestorAgenda({
         ? await ag.crearEvento({ ...duplicar(e, fecha), estado: r, serie_id: e.id, ocurrencia_original: fecha })
         : await ag.actualizarEvento(e.id, { estado: r })
       if (!res) return
-      avisar(r === 'hecha' ? 'Marcada como hecha' : 'Marcada como fallida')
+      // Siempre se ofrece apuntar los detalles de la visita; y, si es de una orden, actualizarla
       const o = e.orden_id ? porId.get(e.orden_id) : undefined
-      if (!o) return
-      const p = propuestaAlMarcar(o, fecha, r, e.tipo === 'visita')
-      if (hayPropuesta(p)) setPregunta({ orden: o, propuesta: p, resultado: r })
+      const p = o ? propuestaAlMarcar(o, fecha, r, e.tipo === 'visita') : null
+      setPregunta({ evento: res, fecha, orden: o, propuesta: p && hayPropuesta(p) ? p : null, resultado: r })
     },
     [ag, avisar, porId],
   )
@@ -259,14 +258,20 @@ export function GestorAgenda({
         })()}
       {pregunta && (
         <PreguntaOrden
+          titulo={pregunta.evento.titulo}
+          fecha={pregunta.fecha}
+          notasIniciales={pregunta.evento.notas}
           orden={pregunta.orden}
           propuesta={pregunta.propuesta}
           resultado={pregunta.resultado}
+          esVisita={pregunta.evento.tipo === 'visita'}
           onClose={() => setPregunta(null)}
-          onAplicar={async (c) => {
-            const ok = await actualizarOrden(pregunta.orden, c)
-            if (ok) avisar('Orden actualizada')
-            return ok
+          onAplicar={async (notas, c) => {
+            if (notas !== pregunta.evento.notas && !(await ag.actualizarEvento(pregunta.evento.id, { notas }))) return false
+            const cambiaOrden = Object.keys(c).length > 0
+            if (cambiaOrden && pregunta.orden && !(await actualizarOrden(pregunta.orden, c))) return false
+            avisar(cambiaOrden ? 'Guardado y orden actualizada' : 'Guardado')
+            return true
           }}
         />
       )}

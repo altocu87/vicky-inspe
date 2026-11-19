@@ -174,7 +174,7 @@ export function EventoForm({
           <input id="ev-tel" type="tel" inputMode="tel" value={f.telefono ?? ''} maxLength={20} onChange={(e) => set('telefono', e.target.value)} />
         </div>
         <div className="field">
-          <label htmlFor="ev-notas">Notas</label>
+          <label htmlFor="ev-notas">Detalles / notas</label>
           <textarea id="ev-notas" rows={3} value={f.notas ?? ''} maxLength={4000} onChange={(e) => set('notas', e.target.value)} />
         </div>
 

@@ -390,3 +390,8 @@ td.acc { white-space: nowrap; }
   .calendario .chip { min-height: 44px; }
   .calendario .btn.sm { --h: 44px; }
 }
+/* Resultado de una visita (hecha / fallida) */
+.resultado-cab { display: flex; align-items: center; gap: 12px; margin: 0; padding: 12px 14px; border-radius: var(--shape-m); }
+.resultado-cab .icon { font-size: 28px; }
+.resultado-cab.ok { background: var(--ok-container); color: var(--on-ok-container); }
+.resultado-cab.ko { background: var(--error-container); color: var(--on-error-container); }

@@ -1,17 +1,32 @@
 // Conversión del texto heredado del Excel `fecha_visita` en visitas del calendario.
-// El texto original NO se toca: solo se leen las fechas «dd/mm/aaaa» que se entienden sin duda.
+// El texto original NO se toca: solo se leen las fechas que se entienden sin duda
+// («dd/mm/aaaa», «d/m/aaaa», «dd-mm-aa»), con palabras como «1º visita el…» o «FALLIDA».
 // La misma lógica está en SQL en supabase/conversiones/ (se comprueba que dan lo mismo).
 import { esIso } from './fechas'
 import type { EstadoEvento } from './eventos'
 
 export type ResultadoConversion =
   | { tipo: 'vacio' } // nada que convertir (vacío o «NO VISITA»)
-  | { tipo: 'ok'; visitas: { fecha: string; estado: EstadoEvento }[]; segunSecuencia: boolean }
+  | {
+      tipo: 'ok'
+      visitas: { fecha: string; estado: EstadoEvento }[]
+      segunSecuencia: boolean
+      /** Si el texto traía algo más que fechas, se guarda entero en los detalles de la visita */
+      notas: string | null
+    }
   | { tipo: 'dudoso'; motivo: string }
 
-const RE_FECHA = /(\d{2})\/(\d{2})\/(\d{4})/g
-/** Lo que puede acompañar a las fechas sin que el texto sea dudoso: espacios y separadores */
-const RE_SEPARADORES = /^[\s,;.\-–yY]*$/
+/**
+ * Fecha «d/m/aaaa», «dd/mm/aaaa», «dd-mm-aa»… (día y mes de 1 o 2 cifras; año de 4 o 2 cifras = 20aa),
+ * opcionalmente seguida de «FALLIDA» (esa visita fue fallida). Se aplica al texto en MAYÚSCULAS.
+ */
+const RE_FECHA = /(?<!\d)(\d{1,2})[/-](\d{1,2})[/-](\d{4}|\d{2})(?!\d)(\s*FALLIDA)?/g
+/** Solo la fecha (para ver qué otras palabras trae el texto) */
+const RE_SOLO_FECHA = /(?<!\d)(\d{1,2})[/-](\d{1,2})[/-](\d{4}|\d{2})(?!\d)/g
+/** Separadores entre palabras */
+const RE_SEP = /[\s,;.–-]+/
+/** Palabras que pueden acompañar a las fechas sin que el texto sea dudoso («1º visita el…», «FALLIDA») */
+const RE_PALABRA_OK = /^(VISITA|EL|Y|FALLIDA|\d[ºª])$/
 
 /** Secuencia de resultados que indica `estado_visita` (null si no se reconoce) */
 export function secuenciaEstado(estadoVisita: string | null): EstadoEvento[] | null {
@@ -36,30 +51,38 @@ export function secuenciaEstado(estadoVisita: string | null): EstadoEvento[] | n
 export function convertirFechaVisita(texto: string | null, estadoVisita: string | null, hoy: string): ResultadoConversion {
   const t = (texto ?? '').trim()
   if (!t || /^NO VISITA$/i.test(t)) return { tipo: 'vacio' }
+  const u = t.toUpperCase()
   const fechas: string[] = []
-  for (const m of t.matchAll(RE_FECHA)) {
-    const iso = `${m[3]}-${m[2]}-${m[1]}`
-    if (!esIso(iso)) return { tipo: 'dudoso', motivo: `Fecha imposible: ${m[0]}` }
+  const fallidas = new Set<string>()
+  for (const m of u.matchAll(RE_FECHA)) {
+    const anio = m[3].length === 2 ? '20' + m[3] : m[3]
+    const iso = `${anio}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`
+    if (!esIso(iso)) return { tipo: 'dudoso', motivo: `Fecha imposible: ${m[1]}/${m[2]}/${m[3]}` }
     fechas.push(iso)
+    if (m[4]) fallidas.add(iso)
   }
-  const resto = t.replace(RE_FECHA, '')
-  if (!fechas.length) return { tipo: 'dudoso', motivo: 'No hay ninguna fecha dd/mm/aaaa' }
-  if (!RE_SEPARADORES.test(resto)) return { tipo: 'dudoso', motivo: 'Hay texto además de las fechas' }
+  if (!fechas.length) return { tipo: 'dudoso', motivo: 'No hay ninguna fecha' }
+  const palabras = u.replace(RE_SOLO_FECHA, ' ').split(RE_SEP).filter(Boolean)
+  if (!palabras.every((p) => RE_PALABRA_OK.test(p))) return { tipo: 'dudoso', motivo: 'Hay texto que no se entiende' }
+  const notas = palabras.length ? `Texto del Excel: «${t}»` : null
   const unicas = [...new Set(fechas)].sort()
   const sec = secuenciaEstado(estadoVisita)
-  // Encaja con la secuencia: mismo número de fechas, o una más si la última es futura (pendiente)
+  let visitas: { fecha: string; estado: EstadoEvento }[]
+  let segunSecuencia = true
   if (sec && sec.length > 0 && unicas.length === sec.length) {
-    return { tipo: 'ok', visitas: unicas.map((fecha, i) => ({ fecha, estado: sec[i] })), segunSecuencia: true }
+    // Encaja con la secuencia: mismo número de fechas
+    visitas = unicas.map((fecha, i) => ({ fecha, estado: sec[i] }))
+  } else if (sec && sec.length > 0 && unicas.length === sec.length + 1 && unicas[unicas.length - 1] >= hoy) {
+    // … o una más, si la última es futura (pendiente)
+    visitas = unicas.map((fecha, i) => ({ fecha, estado: i < sec.length ? sec[i] : 'pendiente' }))
+  } else {
+    // Si no encaja: las futuras pendientes y las pasadas hechas
+    segunSecuencia = false
+    visitas = unicas.map((fecha) => ({ fecha, estado: fecha >= hoy ? 'pendiente' : 'hecha' }))
   }
-  if (sec && sec.length > 0 && unicas.length === sec.length + 1 && unicas[unicas.length - 1] >= hoy) {
-    return {
-      tipo: 'ok',
-      visitas: unicas.map((fecha, i) => ({ fecha, estado: i < sec.length ? sec[i] : 'pendiente' })),
-      segunSecuencia: true,
-    }
-  }
-  // Si no encaja: las futuras pendientes y las pasadas hechas
-  return { tipo: 'ok', visitas: unicas.map((fecha) => ({ fecha, estado: fecha >= hoy ? 'pendiente' : 'hecha' })), segunSecuencia: false }
+  // «dd/mm/aaaa FALLIDA» manda sobre lo anterior
+  visitas = visitas.map((v) => (fallidas.has(v.fecha) ? { ...v, estado: 'fallida' } : v))
+  return { tipo: 'ok', visitas, segunSecuencia, notas }
 }
 
 /** Título de la visita convertida: «Visita (Excel)», o «1ª visita (Excel)», «2ª visita (Excel)»… si hay varias */
