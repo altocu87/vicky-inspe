@@ -79,11 +79,12 @@ function proximo(dow: number, semanas = 0): string {
   return addDias(d, semanas * 7)
 }
 const nuevoId = () => crypto.randomUUID()
+const ahora = () => new Date().toISOString()
 const CALLES = ['C/ Mayor 12, Albacete', 'Avda. de España 30, Albacete', 'Pol. Ind. Campollano, Calle B 5, Albacete', 'C/ Tinte 4, Albacete', 'Paseo de la Libertad 8, Albacete']
 
 function generarEventos(): Evento[] {
   const hoy = hoyIso()
-  const ev = (p: Partial<Evento> & { fecha: string; titulo: string }): Evento => ({ ...eventoNuevo(p), ...p, id: nuevoId() }) as Evento
+  const ev = (p: Partial<Evento> & { fecha: string; titulo: string }): Evento => ({ ...eventoNuevo(p), ...p, id: nuevoId(), updated_at: ahora() }) as Evento
   const out: Evento[] = [
     // Visitas en domingo y lunes, enlazadas a órdenes
     ev({ titulo: 'Visita', fecha: proximo(0), todo_el_dia: false, hora_inicio: '10:00', hora_fin: '11:00', orden_id: ordenes[1].id, ubicacion: CALLES[0], telefono: '600 000 001' }),
@@ -105,7 +106,7 @@ function generarEventos(): Evento[] {
 
 function generarTareas(): Tarea[] {
   const hoy = hoyIso()
-  const t = (p: Partial<Tarea>): Tarea => leerTarea({ ...tareaNueva({ titulo: 'Tarea', ...p }), id: nuevoId() })!
+  const t = (p: Partial<Tarea>): Tarea => leerTarea({ ...tareaNueva({ titulo: 'Tarea', ...p }), id: nuevoId(), updated_at: ahora() })!
   return [
     t({ titulo: 'Pedir contratos de trabajo', orden_id: ordenes[0].id, vence: hoy, prioridad: 'alta' }),
     t({ titulo: 'Redactar informe', orden_id: ordenes[3].id, vence: addDias(hoy, 2) }),
@@ -213,18 +214,21 @@ export const backendDemo: Backend = {
   async listarVisitasFuturas(hoy) {
     return { data: eventos.filter((e) => e.tipo === 'visita' && e.estado === 'pendiente' && e.fecha >= hoy && e.orden_id), error: null }
   },
+  async listarEventosDeTipos(t) {
+    return { data: eventos.filter((e) => t.includes(e.tipo) && e.estado !== 'cancelada' && e.orden_id), error: null }
+  },
   async listarAgendaOrden(id) {
     return { data: { eventos: eventos.filter((e) => e.orden_id === id), tareas: tareas.filter((t) => t.orden_id === id) }, error: null }
   },
   async crearEvento(p) {
-    const e = leerEvento({ ...soloCampos(p, CAMPOS_EVENTO), id: nuevoId() })
+    const e = leerEvento({ ...soloCampos(p, CAMPOS_EVENTO), id: nuevoId(), updated_at: ahora() })
     if (!e) return { data: null, error: 'Algún dato no es válido.' }
     eventos = [...eventos, e]
     return { data: e, error: null }
   },
   async actualizarEvento(id, p) {
     const prev = eventos.find((x) => x.id === id)
-    const e = prev && leerEvento({ ...prev, ...soloCampos(p, CAMPOS_EVENTO) })
+    const e = prev && leerEvento({ ...prev, ...soloCampos(p, CAMPOS_EVENTO), updated_at: ahora() })
     if (!e) return { data: null, error: 'Algún dato no es válido.' }
     eventos = eventos.map((x) => (x.id === id ? e : x))
     return { data: e, error: null }
@@ -237,14 +241,14 @@ export const backendDemo: Backend = {
     return { data: tareas.filter((t) => (t.vence && t.vence >= desde && t.vence <= hasta) || (!t.hecha && (!t.vence || t.vence < desde))), error: null }
   },
   async crearTarea(p) {
-    const t = leerTarea({ ...soloCampos(p, CAMPOS_TAREA), id: nuevoId() })
+    const t = leerTarea({ ...soloCampos(p, CAMPOS_TAREA), id: nuevoId(), updated_at: ahora() })
     if (!t) return { data: null, error: 'Algún dato no es válido.' }
     tareas = [...tareas, t]
     return { data: t, error: null }
   },
   async actualizarTarea(id, p) {
     const prev = tareas.find((x) => x.id === id)
-    const t = prev && leerTarea({ ...prev, ...soloCampos(p, CAMPOS_TAREA) })
+    const t = prev && leerTarea({ ...prev, ...soloCampos(p, CAMPOS_TAREA), updated_at: ahora() })
     if (!t) return { data: null, error: 'Algún dato no es válido.' }
     tareas = tareas.map((x) => (x.id === id ? t : x))
     return { data: t, error: null }

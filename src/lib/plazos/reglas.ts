@@ -123,10 +123,19 @@ export function combinarReglas(filas: readonly ReglaFila[]): Regla[] {
   return out.map((r) => (r.tope && (!ids.has(r.tope) || r.tope === r.id) ? { ...r, tope: null } : r))
 }
 
+/** Partida guardada como texto: un campo de la orden o «evento:<tipo de cita>» */
+export function leerPartida(t: string | null): Partida | null {
+  if ((CAMPOS_PARTIDA as readonly string[]).includes(t ?? '')) return { campo: t as CampoPartida }
+  const m = /^evento:([a-z0-9_]{2,40})$/.exec(t ?? '')
+  return m ? { evento: m[1] } : null
+}
+export const textoPartida = (p: Partida): string => ('campo' in p ? p.campo : `evento:${p.evento}`)
+
 function reglaPersonalizada(f: ReglaFila): Regla | null {
   const nombre = typeof f.nombre === 'string' ? f.nombre.trim().slice(0, 80) : ''
   if (!nombre) return null
-  if (!(CAMPOS_PARTIDA as readonly string[]).includes(f.partida ?? '')) return null
+  const partida = leerPartida(f.partida)
+  if (!partida) return null
   if (!(UNIDADES as readonly string[]).includes(f.unidad ?? '')) return null
   if (!Number.isInteger(f.cantidad) || f.cantidad! < 1 || f.cantidad! > 3650) return null
   const estados = (f.estados ?? []).filter((e) => ESTADOS_VALIDOS.includes(e)) as Estado[]
@@ -134,7 +143,7 @@ function reglaPersonalizada(f: ReglaFila): Regla | null {
     id: f.id,
     nombre,
     corto: (f.corto?.trim() || nombre).slice(0, 24),
-    partida: { campo: f.partida as CampoPartida },
+    partida,
     unidad: f.unidad as Unidad,
     cantidad: f.cantidad!,
     tope: f.tope && RE_ID.test(f.tope) ? f.tope : null,
@@ -148,7 +157,7 @@ function reglaPersonalizada(f: ReglaFila): Regla | null {
 /** «5 meses desde la última actuación, sin pasar de Límite 9 meses» */
 export function describirRegla(r: Regla, todas: readonly Regla[]): string {
   const [uno, varios] = NOMBRE_UNIDAD[r.unidad]
-  const desde = 'campo' in r.partida ? NOMBRE_CAMPO[r.partida.campo].toLowerCase() : `el último evento «${r.partida.evento}»`
+  const desde = 'campo' in r.partida ? NOMBRE_CAMPO[r.partida.campo].toLowerCase() : `la última cita «${r.partida.evento}» (hecha o pendiente)`
   let t = `${r.cantidad} ${r.cantidad === 1 ? uno : varios} desde ${desde}`
   const tope = r.tope && todas.find((x) => x.id === r.tope)
   if (tope) t += `, sin pasar de «${tope.nombre}»`

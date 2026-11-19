@@ -31,6 +31,8 @@ export interface Backend {
   listarEventos(desde: string, hasta: string): Promise<Resultado<Evento[]>>
   /** Visitas pendientes desde hoy enlazadas a una orden (para «Próxima visita» y «Por programar») */
   listarVisitasFuturas(hoy: string): Promise<Resultado<Evento[]>>
+  /** Citas no canceladas de unos tipos (para las reglas de plazo que cuentan desde una cita) */
+  listarEventosDeTipos(tipos: string[]): Promise<Resultado<Evento[]>>
   /** Visitas, citas y tareas de una orden */
   listarAgendaOrden(ordenId: string): Promise<Resultado<{ eventos: Evento[]; tareas: Tarea[] }>>
   crearEvento(e: EventoInput): Promise<Resultado<Evento>>

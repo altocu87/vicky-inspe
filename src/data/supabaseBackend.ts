@@ -134,6 +134,18 @@ export const backendSupabase: Backend = {
       .limit(5000)
     return error ? ko(error) : ok(eventos(data))
   },
+  async listarEventosDeTipos(tipos) {
+    const validos = tipos.filter((t) => /^[a-z0-9_]{2,40}$/.test(t))
+    if (!validos.length) return ok([])
+    const { data, error } = await supabase
+      .from('eventos')
+      .select(COLS_EVENTO)
+      .in('tipo', validos)
+      .neq('estado', 'cancelada')
+      .not('orden_id', 'is', null)
+      .limit(10000)
+    return error ? ko(error) : ok(eventos(data))
+  },
   async listarAgendaOrden(ordenId) {
     const [e, t] = await Promise.all([
       supabase.from('eventos').select(COLS_EVENTO).eq('orden_id', ordenId).order('fecha').limit(1000),

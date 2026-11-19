@@ -2,6 +2,7 @@
 import { textoInhabil, type Inhabil } from '../lib/habiles'
 import type { Orden } from '../lib/ordenes'
 import { irA } from '../nav'
+import { useAcciones } from '../state/acciones'
 
 /** Icono que avisa de que el plazo cae en sábado, domingo o festivo */
 export function MarcaInhabil({ inhabil, conTexto }: { inhabil: Inhabil | null; conTexto?: boolean }) {
@@ -32,6 +33,26 @@ export function BotonVerCalendario({ orden, className = '' }: { orden: Pick<Orde
       onKeyDown={(e) => e.stopPropagation()}
     >
       <span className="icon">event_upcoming</span>
+    </button>
+  )
+}
+
+/** «Programar visita»: abre el formulario de visita de la orden con el próximo domingo o lunes libre */
+export function BotonProgramar({ orden, className = '' }: { orden: Pick<Orden, 'id' | 'num_orden'>; className?: string }) {
+  const { programarVisita } = useAcciones()
+  return (
+    <button
+      type="button"
+      className={`icon-btn ver-cal ${className}`}
+      title="Programar visita"
+      aria-label={`Programar una visita para la orden ${orden.num_orden}`}
+      onClick={(e) => {
+        e.stopPropagation()
+        programarVisita(orden.id)
+      }}
+      onKeyDown={(e) => e.stopPropagation()}
+    >
+      <span className="icon">add_location_alt</span>
     </button>
   )
 }

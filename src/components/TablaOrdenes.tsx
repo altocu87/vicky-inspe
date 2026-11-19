@@ -3,7 +3,11 @@ import { usePlazosCtx } from '../hooks'
 import { fmtCorta, label, textoDias, type Orden } from '../lib/ordenes'
 import { plazoDe, proximoPlazo, type ContextoPlazos, type PlazoCalc } from '../lib/plazos/motor'
 import { ESTADO_CLASE } from './OrdenCard'
-import { BotonVerCalendario, MarcaInhabil } from './plazos'
+import { BotonProgramar, BotonVerCalendario, MarcaInhabil } from './plazos'
+import { useAgenda } from '../state/agenda'
+import { semaforoVisita } from '../lib/porProgramar'
+import { textoHora, type Evento } from '../lib/eventos'
+import { nombreDia } from '../lib/fechas'
 
 export type SortKey =
   | 'num_orden'
@@ -24,6 +28,7 @@ export type SortKey =
   | 'doc_subida'
   | 'claves'
   | 'prox'
+  | 'visita_prox'
   | 'urgencia'
 export type Sort = { key: SortKey; dir: 'asc' | 'desc' }
 
@@ -34,7 +39,7 @@ type Col = {
   width?: number
   fixed?: boolean // no se puede ocultar
   align?: 'center' | 'right'
-  render: (o: Orden, ctx: ContextoPlazos) => ReactNode
+  render: (o: Orden, ctx: ContextoPlazos, prox: ReadonlyMap<string, Evento>) => ReactNode
   title?: (o: Orden) => string | undefined
 }
 
@@ -67,6 +72,34 @@ function SiNoCell({ v }: { v: string | null }) {
   return (
     <span className="sino pte" title="Pendiente">
       <span className="icon">radio_button_unchecked</span>
+    </span>
+  )
+}
+
+const ICONO_SEMAFORO = { ok: 'event_available', tarde: 'event_busy', falta: 'warning', nada: 'remove' } as const
+const TEXTO_SEMAFORO = { ok: 'Antes del plazo', tarde: 'Después del plazo', falta: 'Sin visita y con prisa', nada: '' } as const
+
+/** Próxima visita con su semáforo frente al próximo plazo */
+export function ProximaVisita({ o, ctx, prox, compacta }: { o: Orden; ctx: ContextoPlazos; prox: ReadonlyMap<string, Evento>; compacta?: boolean }) {
+  if (o.estado === 'FINALIZADA') return <span className="muted">—</span>
+  const v = prox.get(o.id)
+  const s = semaforoVisita(v, proximoPlazo(o, ctx))
+  if (!v && s === 'nada') return <span className="muted">—</span>
+  return (
+    <span className={`vcell sv-${s}`} title={TEXTO_SEMAFORO[s]}>
+      <span className="icon" aria-hidden>
+        {ICONO_SEMAFORO[s]}
+      </span>
+      {v ? (
+        <span>
+          {compacta ? '' : nombreDia(v.fecha) + ' '}
+          {fmtCorta(v.fecha)}
+          {!v.todo_el_dia && <span className="muted"> {textoHora(v)}</span>}
+        </span>
+      ) : (
+        <span>Sin visita</span>
+      )}
+      <span className="sr-only">{TEXTO_SEMAFORO[s]}</span>
     </span>
   )
 }
@@ -113,6 +146,13 @@ export const COLUMNAS: Col[] = [
     width: 200,
     render: (o, ctx) => (o.estado === 'FINALIZADA' ? <span className="muted">—</span> : <Dias p={proximoPlazo(o, ctx)} fin={false} conTipo />),
   },
+  {
+    key: 'visita_prox',
+    label: 'Próxima visita',
+    short: 'Próx. visita',
+    width: 168,
+    render: (o, ctx, prox) => <ProximaVisita o={o} ctx={ctx} prox={prox} />,
+  },
   { key: 'objeto', label: 'Objeto', width: 220, render: (o) => txt(o.objeto), title: (o) => o.objeto ?? undefined },
   {
     key: 'estado_docum',
@@ -122,7 +162,7 @@ export const COLUMNAS: Col[] = [
     render: (o) => <span className={`tag d-${(o.estado_docum ?? '').replace(/\s/g, '')}`}>{label(o.estado_docum)}</span>,
   },
   { key: 'estado_visita', label: 'Visita', width: 150, render: (o) => txt(label(o.estado_visita)), title: (o) => o.estado_visita ?? undefined },
-  { key: 'fecha_visita', label: 'Fecha visita', short: 'F. visita', width: 140, render: (o) => txt(o.fecha_visita), title: (o) => o.fecha_visita ?? undefined },
+  { key: 'fecha_visita', label: 'Notas de visita (Excel)', short: 'Notas visita', width: 140, render: (o) => txt(o.fecha_visita), title: (o) => o.fecha_visita ?? undefined },
   {
     key: 'situacion_general',
     label: 'Situación general',
@@ -211,6 +251,7 @@ export function TablaOrdenes({
   onOpen: (o: Orden) => void
 }) {
   const ctx = usePlazosCtx()
+  const { proximas } = useAgenda()
   const cols = COLUMNAS.filter((c) => !ocultas.includes(c.key))
   let left = 0
   const sticky = new Map<SortKey, number>()
@@ -226,7 +267,7 @@ export function TablaOrdenes({
           {cols.map((c) => (
             <col key={c.key} style={{ width: c.width }} />
           ))}
-          <col style={{ width: 52 }} />
+          <col style={{ width: 100 }} />
         </colgroup>
         <thead>
           <tr>
@@ -273,10 +314,11 @@ export function TablaOrdenes({
                   style={sticky.has(c.key) ? { left: sticky.get(c.key) } : undefined}
                   title={c.title?.(o)}
                 >
-                  {c.render(o, ctx)}
+                  {c.render(o, ctx, proximas)}
                 </td>
               ))}
               <td className="acc">
+                {o.estado !== 'FINALIZADA' && <BotonProgramar orden={o} />}
                 <BotonVerCalendario orden={o} />
               </td>
             </tr>
@@ -290,6 +332,7 @@ export function TablaOrdenes({
 /** Lista compacta para móvil */
 export function ListaMovil({ ordenes, onOpen }: { ordenes: Orden[]; onOpen: (o: Orden) => void }) {
   const ctx = usePlazosCtx()
+  const { proximas } = useAgenda()
   return (
     <ul className="mlist">
       {ordenes.map((o) => {
@@ -322,9 +365,17 @@ export function ListaMovil({ ordenes, onOpen }: { ordenes: Orden[]; onOpen: (o: 
                     ))}
                 </div>
               )}
+              {!fin && (
+                <span className="mrow-visita">
+                  <span className="label-m muted">Próxima visita:</span> <ProximaVisita o={o} ctx={ctx} prox={proximas} compacta />
+                </span>
+              )}
               {!fin && o.tareas_pendientes && <span className="mrow-task">{o.tareas_pendientes}</span>}
             </button>
-            <BotonVerCalendario orden={o} className="mrow-cal" />
+            <span className="mrow-acc">
+              <BotonVerCalendario orden={o} className="mrow-cal" />
+              {!fin && <BotonProgramar orden={o} />}
+            </span>
           </li>
         )
       })}

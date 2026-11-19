@@ -28,6 +28,7 @@ export function VistaPlazos({
   setNivelesSel,
   onOpen,
   onQuitarOrden,
+  sinFiltroOrden,
 }: {
   ordenes: Orden[]
   ordenId?: string
@@ -37,6 +38,8 @@ export function VistaPlazos({
   setNivelesSel: (v: Nivel[]) => void
   onOpen: (o: Orden) => void
   onQuitarOrden: () => void
+  /** El aviso «Solo la orden…» ya lo pone la pantalla del calendario */
+  sinFiltroOrden?: boolean
 }) {
   const ctx = usePlazosCtx()
   const reglasActivas = ctx.reglas.filter((r) => r.activa)
@@ -56,7 +59,7 @@ export function VistaPlazos({
 
   return (
     <div className="vplazos">
-      {ordenId && (
+      {ordenId && !sinFiltroOrden && (
         <div className="filtro-orden" role="status">
           <span className="icon">filter_alt</span>
           <span>

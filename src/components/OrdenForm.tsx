@@ -7,6 +7,10 @@ import { plazosDe } from '../lib/plazos/motor'
 import { ESTADO_ICONO } from './OrdenCard'
 import { Plazo } from './Plazo'
 import { BotonVerCalendario } from './plazos'
+import { useAgenda } from '../state/agenda'
+import { useAcciones } from '../state/acciones'
+import { eventoNuevo, NOMBRE_ESTADO_EVENTO, textoHora } from '../lib/eventos'
+import { fmt as fmtLarga, esIso, nombreDia } from '../lib/fechas'
 
 type Props = {
   orden: Orden | null // null = nueva
@@ -114,6 +118,17 @@ export function OrdenForm({ orden, onClose, onSaved, onDelete, onError }: Props)
   const [tried, setTried] = useState(false)
   const nueva = !orden
   const ctx = usePlazosCtx()
+  const ag = useAgenda()
+  const acc = useAcciones()
+  // Visitas elegidas con el minicalendario en una orden NUEVA: se crean al guardarla
+  const [visitasNuevas, setVisitasNuevas] = useState<string[]>([])
+  const ordenId = orden?.id
+  const { cargarOrden } = ag
+  useEffect(() => {
+    if (ordenId) cargarOrden(ordenId)
+  }, [ordenId, cargarOrden])
+  const susEventos = ordenId ? ag.eventos.filter((e) => e.orden_id === ordenId).sort((a, b) => b.fecha.localeCompare(a.fecha)) : []
+  const susTareas = ordenId ? ag.tareas.filter((t) => t.orden_id === ordenId).sort((a, b) => Number(a.hecha) - Number(b.hecha) || (a.vence ?? '9').localeCompare(b.vence ?? '9')) : []
 
   useEffect(() => {
     if (ref.current && !ref.current.open) ref.current.showModal()
@@ -132,12 +147,15 @@ export function OrdenForm({ orden, onClose, onSaved, onDelete, onError }: Props)
     onClose()
   }
 
-  function anadirFechaVisita(iso: string) {
-    if (!iso) return
-    const [y, m, d] = iso.split('-')
-    const txt = `${d}/${m}/${y}`
-    const actual = f.fecha_visita && f.fecha_visita !== 'NO VISITA' ? f.fecha_visita + ' ' : ''
-    set('fecha_visita', actual + txt)
+  /** El minicalendario ya NO escribe texto: crea la visita en el calendario (enlazada a esta orden) */
+  async function anadirFechaVisita(iso: string) {
+    if (!esIso(iso)) return
+    if (!ordenId) {
+      setVisitasNuevas((v) => (v.includes(iso) ? v : [...v, iso].sort()))
+      return
+    }
+    const e = await ag.crearEvento(eventoNuevo({ fecha: iso, tipo: 'visita', titulo: 'Visita', orden_id: ordenId }))
+    if (e) acc.avisar(`Visita creada el ${fmtLarga(iso)}`)
   }
 
   async function guardar(e: React.FormEvent) {
@@ -171,6 +189,8 @@ export function OrdenForm({ orden, onClose, onSaved, onDelete, onError }: Props)
       onError('No se pudo guardar: ' + error)
       return
     }
+    // Visitas elegidas antes de que existiera la orden
+    for (const v of nueva ? visitasNuevas : []) await ag.crearEvento(eventoNuevo({ fecha: v, tipo: 'visita', titulo: 'Visita', orden_id: data.id }))
     ref.current?.close()
     onSaved(data, nueva)
   }
@@ -265,9 +285,74 @@ export function OrdenForm({ orden, onClose, onSaved, onDelete, onError }: Props)
                   )
                 })}
             </div>
-            <p className="body-m muted" style={{ margin: 0 }}>
-              Las visitas y tareas de esta orden aparecerán aquí cuando esté el calendario completo.
-            </p>
+            {!nueva && (
+              <>
+                <h4 className="label-l agenda-sub">Visitas y citas</h4>
+                {susEventos.length === 0 ? (
+                  <p className="body-m muted agenda-vacio">Sin visitas ni citas.</p>
+                ) : (
+                  <ul className="agenda-lista">
+                    {susEventos.map((e) => (
+                      <li key={e.id}>
+                        <button type="button" className={`agenda-item est-${e.estado}`} onClick={() => acc.editarEvento(e, e.fecha)}>
+                          <span className="icon">{ag.tiposMap.get(e.tipo)?.icono ?? 'event'}</span>
+                          <span className="agenda-txt">
+                            <strong>
+                              {nombreDia(e.fecha)} {fmtLarga(e.fecha)}
+                            </strong>{' '}
+                            · {textoHora(e)} · {ag.tiposMap.get(e.tipo)?.nombre ?? e.tipo}
+                            {e.origen === 'excel' && <span className="tag">Excel</span>}
+                          </span>
+                          <span className={`tag est-${e.estado}`}>{NOMBRE_ESTADO_EVENTO[e.estado]}</span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <h4 className="label-l agenda-sub">Tareas</h4>
+                {susTareas.length === 0 ? (
+                  <p className="body-m muted agenda-vacio">Sin tareas.</p>
+                ) : (
+                  <ul className="agenda-lista">
+                    {susTareas.map((t) => (
+                      <li key={t.id} className="agenda-tarea">
+                        <button
+                          type="button"
+                          className="icon-btn"
+                          aria-label={t.hecha ? `Marcar «${t.titulo}» como no hecha` : `Marcar «${t.titulo}» como hecha`}
+                          onClick={() => acc.alternarTarea(t)}
+                        >
+                          <span className="icon">{t.hecha ? 'check_box' : 'check_box_outline_blank'}</span>
+                        </button>
+                        <button type="button" className={`agenda-item${t.hecha ? ' hecha' : ''}`} onClick={() => acc.editarTarea(t)}>
+                          <span className="agenda-txt">
+                            <strong>{t.titulo}</strong> · {t.vence ? fmtLarga(t.vence) : 'sin fecha'}
+                            {t.oficina && <span className="tag">Oficina</span>}
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <div className="agenda-botones">
+                  {!fin && (
+                    <button type="button" className="btn tonal" onClick={() => acc.programarVisita(orden.id)}>
+                      <span className="icon">add_location_alt</span>
+                      Programar visita
+                    </button>
+                  )}
+                  <button type="button" className="btn tonal" onClick={() => acc.nuevoEvento({ fecha: ctx.hoy, tipo: 'comparecencia', orden_id: orden.id })}>
+                    <span className="icon">event</span>
+                    Otra cita
+                  </button>
+                  <button type="button" className="btn tonal" onClick={() => acc.nuevaTarea({ orden_id: orden.id })}>
+                    <span className="icon">add_task</span>
+                    Añadir tarea
+                  </button>
+                </div>
+              </>
+            )}
+            {nueva && <p className="body-m muted agenda-vacio">Guarda la orden para añadirle visitas y tareas.</p>}
           </section>
 
           <section className="section">
@@ -285,20 +370,31 @@ export function OrdenForm({ orden, onClose, onSaved, onDelete, onError }: Props)
               <h3 className="title-m">Visita</h3>
             </div>
             <Seg label="Estado de la visita" options={ESTADOS_VISITA} value={f.estado_visita} onChange={(v) => set('estado_visita', v)} clearable wrap />
+            {visitasNuevas.length > 0 && (
+              <div className="chips" aria-label="Visitas que se crearán al guardar">
+                {visitasNuevas.map((v) => (
+                  <button key={v} type="button" className="chip on" onClick={() => setVisitasNuevas(visitasNuevas.filter((x) => x !== v))} aria-label={`Quitar la visita del ${fmtLarga(v)}`}>
+                    <span className="icon">directions_car</span>
+                    {fmtLarga(v)}
+                    <span className="icon">close</span>
+                  </button>
+                ))}
+              </div>
+            )}
             <Field
               id="fv"
-              label="Fecha(s) de visita"
+              label="Notas de visita (Excel)"
               value={f.fecha_visita}
               onChange={setTxt('fecha_visita')}
-              placeholder="NO VISITA, 14/04/2025…"
-              help="Puedes escribir varias fechas o notas, o añadir una con el calendario."
+              placeholder="NO VISITA, notas…"
+              help="Texto heredado del Excel. Para programar una visita, usa el calendario de la derecha: se crea en el calendario."
               trailing={
                 <>
                   <button
                     type="button"
                     className="icon-btn field-trailing"
-                    aria-label="Añadir fecha de visita"
-                    title="Añadir fecha"
+                    aria-label="Crear una visita en el calendario"
+                    title="Crear visita en el calendario"
                     onClick={() => {
                       const el = datePick.current
                       if (!el) return

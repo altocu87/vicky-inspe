@@ -151,3 +151,12 @@ create policy "Borrado usuarios autenticados" on public.tareas
   for delete to authenticated using (true);
 
 revoke all on public.tareas from anon;
+
+-- ---------- Reglas de plazo que cuentan desde una cita ----------
+-- Una regla creada en Ajustes puede contar desde la última cita de un tipo («evento:<tipo>»).
+alter table public.reglas_plazo drop constraint if exists reglas_plazo_partida_check;
+alter table public.reglas_plazo add constraint reglas_plazo_partida_check check (
+  partida is null
+  or partida in ('fecha_orden', 'fecha_primera_actuacion', 'fecha_ultima_actuacion')
+  or partida ~ '^evento:[a-z0-9_]{2,40}$'
+);

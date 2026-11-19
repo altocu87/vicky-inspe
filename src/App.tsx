@@ -20,6 +20,10 @@ import { ConfirmDelete } from './components/ConfirmDelete'
 import { Ajustes } from './components/Ajustes'
 import { Calendario } from './components/calendario/Calendario'
 import { COLUMNAS, ColumnasMenu, ListaMovil, OCULTAS_DEF, TablaOrdenes, type Sort, type SortKey } from './components/TablaOrdenes'
+import { GestorAgenda } from './components/agenda/Gestor'
+import { AgendaCtx, useAgendaEstado } from './state/agenda'
+import type { Evento } from './lib/eventos'
+import { textoHora } from './lib/eventos'
 
 type Vista = 'tabla' | 'tarjetas'
 type Snack = { msg: string; err?: boolean; action?: { label: string; fn: () => void } }
@@ -31,8 +35,10 @@ const SORTS_MOVIL: { id: string; label: string; sort: Sort }[] = [
   { id: 'emp', label: 'Empresa (A-Z)', sort: { key: 'empresa', dir: 'asc' } },
 ]
 
-function valorOrden(o: Orden, k: SortKey, ctx: ContextoPlazos): string | number | null {
+function valorOrden(o: Orden, k: SortKey, ctx: ContextoPlazos, prox: ReadonlyMap<string, Evento>): string | number | null {
   switch (k) {
+    case 'visita_prox':
+      return prox.get(o.id)?.fecha ?? null
     case 'urgencia':
       return diasMinimos(o, ctx)
     case 'lim9':
@@ -48,9 +54,13 @@ function valorOrden(o: Orden, k: SortKey, ctx: ContextoPlazos): string | number 
   }
 }
 
-function exportarCsv(rows: Orden[], ctx: ContextoPlazos) {
+function exportarCsv(rows: Orden[], ctx: ContextoPlazos, prox: ReadonlyMap<string, Evento>) {
   const cols = COLUMNAS
   const val = (o: Orden, k: SortKey): string => {
+    if (k === 'visita_prox') {
+      const v = prox.get(o.id)
+      return v ? `${fmtCorta(v.fecha)}${v.todo_el_dia ? '' : ' ' + textoHora(v)}` : ''
+    }
     if (k === 'lim9' || k === 'sig') {
       const p = plazoDe(o, k, ctx)
       return p ? fmtCorta(p.fecha) : ''
@@ -237,7 +247,22 @@ function Panel({ email }: { email: string }) {
   }, [hoy])
 
   const reglas = useMemo(() => combinarReglas(reglasFilas), [reglasFilas])
-  const ctx = useMemo<ContextoPlazos>(() => ({ hoy, reglas, festivos: mapaFestivos(festivos) }), [hoy, reglas, festivos])
+  // Agenda (visitas, citas y tareas): un solo estado para la tabla, el calendario y el formulario
+  const avisar = useCallback(
+    (msg: string, err?: boolean, deshacer?: () => void) => showSnack({ msg, err, action: deshacer ? { label: 'Deshacer', fn: deshacer } : undefined }),
+    [showSnack],
+  )
+  const tiposPlazo = useMemo(() => reglas.filter((r) => r.activa && 'evento' in r.partida).map((r) => ('evento' in r.partida ? r.partida.evento : '')), [reglas])
+  const agenda = useAgendaEstado(hoy, avisar, tiposPlazo)
+  // Las reglas que cuentan desde una cita usan las citas no canceladas de cada orden
+  const eventosPlazos = useMemo(
+    () =>
+      tiposPlazo.length
+        ? agenda.eventos.filter((e) => e.orden_id && e.estado !== 'cancelada' && tiposPlazo.includes(e.tipo)).map((e) => ({ orden_id: e.orden_id!, tipo: e.tipo, fecha: e.fecha }))
+        : undefined,
+    [agenda.eventos, tiposPlazo],
+  )
+  const ctx = useMemo<ContextoPlazos>(() => ({ hoy, reglas, festivos: mapaFestivos(festivos), eventos: eventosPlazos }), [hoy, reglas, festivos, eventosPlazos])
 
   const stats = useMemo(() => contarEstados(ordenes, ctx), [ordenes, ctx])
 
@@ -246,15 +271,16 @@ function Panel({ email }: { email: string }) {
     const list = ordenes.filter((o) => pasaFiltros(o, f, ctx))
     const m = sort.dir === 'asc' ? 1 : -1
     return list.sort((a, b) => {
-      const va = valorOrden(a, sort.key, ctx)
-      const vb = valorOrden(b, sort.key, ctx)
+      const va = valorOrden(a, sort.key, ctx, agenda.proximas)
+      const vb = valorOrden(b, sort.key, ctx, agenda.proximas)
       if (va === vb) return (b.fecha_orden ?? '').localeCompare(a.fecha_orden ?? '')
       if (va === null) return 1
       if (vb === null) return -1
       if (typeof va === 'number' && typeof vb === 'number') return (va - vb) * m
       return String(va).localeCompare(String(vb), 'es', { numeric: true }) * m
     })
-  }, [ordenes, q, filtro, ocultarFin, sort, ctx])
+  }, [ordenes, q, filtro, ocultarFin, sort, ctx, agenda.proximas])
+  const filtros = useMemo(() => ({ q, filtro, ocultarFin }), [q, filtro, ocultarFin])
 
   function elegirFiltro(f: Filtro) {
     const nuevo = filtro === f ? 'todos' : f
@@ -277,9 +303,12 @@ function Panel({ email }: { email: string }) {
   async function eliminar(o: Orden) {
     setDeleting(null)
     const b = await api()
+    // Sus visitas y tareas se borran con ella (en cascada): se guardan antes para poder deshacer
+    const suyas = await b.listarAgendaOrden(o.id)
     const err = await b.eliminarOrden(o.id)
     if (err) return showSnack({ msg: 'No se pudo eliminar: ' + err, err: true })
     setOrdenes((prev) => prev.filter((x) => x.id !== o.id))
+    agenda.olvidarOrden(o.id)
     showSnack({
       msg: 'Orden eliminada',
       action: {
@@ -290,6 +319,31 @@ function Panel({ email }: { email: string }) {
           const { data, error } = await b.crearOrden(rest)
           if (error !== null) return showSnack({ msg: 'No se pudo restaurar: ' + error, err: true })
           setOrdenes((prev) => [data, ...prev])
+          if (suyas.error === null) {
+            // Primero las citas normales y las series; luego las excepciones (apuntan a su serie, con id nuevo)
+            const ids = new Map<string, string>()
+            for (const e of suyas.data.eventos.filter((x) => !x.serie_id)) {
+              const { id, created_at, updated_at, ...resto } = e
+              void created_at
+              void updated_at
+              const n = await agenda.crearEvento({ ...resto, orden_id: data.id })
+              if (n) ids.set(id, n.id)
+            }
+            for (const e of suyas.data.eventos.filter((x) => x.serie_id && ids.has(x.serie_id))) {
+              const { id, created_at, updated_at, ...resto } = e
+              void id
+              void created_at
+              void updated_at
+              await agenda.crearEvento({ ...resto, orden_id: data.id, serie_id: ids.get(e.serie_id!)! })
+            }
+            for (const t of suyas.data.tareas) {
+              const { id, created_at, updated_at, ...resto } = t
+              void id
+              void created_at
+              void updated_at
+              await agenda.crearTarea({ ...resto, orden_id: data.id })
+            }
+          }
           showSnack({ msg: 'Orden restaurada' })
         },
       },
@@ -318,13 +372,27 @@ function Panel({ email }: { email: string }) {
   if (pantalla === 'ajustes')
     return (
       <PlazosCtx.Provider value={ctx}>
-        <Ajustes festivos={festivos} reglas={reglas} onBack={volver} onCambio={cargarConfig} avisar={(msg, err) => showSnack({ msg, err })} />
-        {snack && <SnackBar snack={snack} cerrar={() => setSnack(null)} />}
+        <AgendaCtx.Provider value={agenda}>
+          <Ajustes festivos={festivos} reglas={reglas} onBack={volver} onCambio={cargarConfig} avisar={(msg, err) => showSnack({ msg, err })} />
+          {snack && <SnackBar snack={snack} cerrar={() => setSnack(null)} />}
+        </AgendaCtx.Provider>
       </PlazosCtx.Provider>
     )
 
+  async function actualizarOrden(o: Orden, cambios: Partial<Orden>): Promise<boolean> {
+    const { data, error } = await (await api()).actualizarOrden(o.id, cambios)
+    if (error !== null) {
+      showSnack({ msg: 'No se pudo actualizar la orden: ' + error, err: true })
+      return false
+    }
+    setOrdenes((prev) => prev.map((x) => (x.id === o.id ? data : x)))
+    return true
+  }
+
   return (
     <PlazosCtx.Provider value={ctx}>
+     <AgendaCtx.Provider value={agenda}>
+      <GestorAgenda ordenes={ordenes} festivos={ctx.festivos} abrirOrden={setEditing} actualizarOrden={actualizarOrden} avisar={avisar}>
       <div className={`app${verTabla && !mobile && !enCal ? ' wide' : ''}${mobile ? ' con-nav' : ''}`}>
         <header className="topbar">
           <div className="brand">
@@ -340,7 +408,7 @@ function Panel({ email }: { email: string }) {
                 <span className="icon">table_rows</span>
                 Órdenes
               </button>
-              <button className={enCal ? 'on' : ''} aria-current={enCal ? 'page' : undefined} onClick={() => irA({ pantalla: 'calendario', vista: 'plazos' })}>
+              <button className={enCal ? 'on' : ''} aria-current={enCal ? 'page' : undefined} onClick={() => irA({ pantalla: 'calendario' })}>
                 <span className="icon">calendar_month</span>
                 Calendario
               </button>
@@ -426,7 +494,7 @@ function Panel({ email }: { email: string }) {
             <label className="search">
               <span className="icon">search</span>
               <span className="sr-only">Buscar</span>
-              <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar nº, empresa, objeto, tareas…" type="search" enterKeyHint="search" />
+              <input id="buscar" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar nº, empresa, objeto, tareas… ( / )" type="search" enterKeyHint="search" />
               {q && (
                 <button className="icon-btn" onClick={() => setQ('')} aria-label="Borrar búsqueda">
                   <span className="icon">close</span>
@@ -471,7 +539,7 @@ function Panel({ email }: { email: string }) {
               <div className="toolbar-end">
                 {!verTabla && <SortMenu actual={sortActual} onPick={(id) => setSort(SORTS_MOVIL.find((s) => s.id === id)!.sort)} conTexto />}
                 {verTabla && <ColumnasMenu ocultas={ocultas} setOcultas={setOcultas} />}
-                <button className="icon-btn" title="Exportar a Excel (CSV)" aria-label="Exportar a Excel (CSV)" onClick={() => exportarCsv(visibles, ctx)}>
+                <button className="icon-btn" title="Exportar a Excel (CSV)" aria-label="Exportar a Excel (CSV)" onClick={() => exportarCsv(visibles, ctx, agenda.proximas)}>
                   <span className="icon">download</span>
                 </button>
                 <div className="seg mini" role="radiogroup" aria-label="Vista">
@@ -503,7 +571,7 @@ function Panel({ email }: { email: string }) {
             <span />
           </div>
         ) : enCal ? (
-          <Calendario ordenes={visibles} todas={ordenes} ruta={ruta} onOpen={setEditing} />
+          <Calendario ordenes={visibles} todas={ordenes} ruta={ruta} filtros={filtros} festivos={festivos} onOpen={setEditing} />
         ) : visibles.length === 0 ? (
           <div className="empty">
             <div className="blob">
@@ -571,7 +639,7 @@ function Panel({ email }: { email: string }) {
               </span>
               Órdenes
             </button>
-            <button className={enCal ? 'on' : ''} aria-current={enCal ? 'page' : undefined} onClick={() => irA({ pantalla: 'calendario', vista: 'plazos' })}>
+            <button className={enCal ? 'on' : ''} aria-current={enCal ? 'page' : undefined} onClick={() => irA({ pantalla: 'calendario' })}>
               <span className="nav-ic">
                 <span className={`icon${enCal ? ' fill' : ''}`}>calendar_month</span>
               </span>
@@ -586,6 +654,8 @@ function Panel({ email }: { email: string }) {
           </nav>
         )}
       </div>
+      </GestorAgenda>
+     </AgendaCtx.Provider>
     </PlazosCtx.Provider>
   )
 }

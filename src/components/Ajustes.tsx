@@ -4,7 +4,10 @@ import { api } from '../data/api'
 import { esIso, fmt, hoyIso, nombreDia } from '../lib/fechas'
 import type { Ambito, Festivo } from '../lib/habiles'
 import { ESTADOS, LABELS } from '../lib/ordenes'
-import { CAMPOS_PARTIDA, describirRegla, NOMBRE_CAMPO, NOMBRE_UNIDAD, UNIDADES, type CampoPartida, type Regla, type Unidad } from '../lib/plazos/reglas'
+import { CAMPOS_PARTIDA, describirRegla, NOMBRE_CAMPO, NOMBRE_UNIDAD, UNIDADES, type Regla, type Unidad } from '../lib/plazos/reglas'
+import { useAgenda } from '../state/agenda'
+import { ICONOS_TIPO, RE_ID_TIPO, type TipoCita } from '../lib/eventos'
+import { normal } from '../lib/filtros'
 
 const NOMBRE_AMBITO: Record<Ambito, string> = { nacional: 'Nacional', autonomico: 'Castilla-La Mancha', local: 'Local (Albacete)' }
 
@@ -74,6 +77,8 @@ export function Ajustes({
         </ul>
         <NuevoFestivo anio={anio} existentes={festivos} onCambio={onCambio} avisar={avisar} />
       </section>
+
+      <TiposCita avisar={avisar} />
 
       <section className="section aj-sec" aria-labelledby="aj-reglas">
         <div className="section-title">
@@ -248,7 +253,8 @@ function FilaRegla({ r, todas, onCambio, avisar }: { r: Regla; todas: Regla[]; o
 function NuevaRegla({ reglas, onCambio, avisar }: { reglas: Regla[]; onCambio: () => void; avisar: (m: string, e?: boolean) => void }) {
   const [abierto, setAbierto] = useState(false)
   const [nombre, setNombre] = useState('')
-  const [partida, setPartida] = useState<CampoPartida>('fecha_orden')
+  const [partida, setPartida] = useState<string>('fecha_orden')
+  const { tipos } = useAgenda()
   const [unidad, setUnidad] = useState<Unidad>('habiles')
   const [cantidad, setCantidad] = useState('10')
   const [tope, setTope] = useState('')
@@ -335,12 +341,19 @@ function NuevaRegla({ reglas, onCambio, avisar }: { reglas: Regla[]; onCambio: (
         </div>
         <div className="field">
           <label htmlFor="nr-par">Desde</label>
-          <select id="nr-par" value={partida} onChange={(e) => setPartida(e.target.value as CampoPartida)}>
+          <select id="nr-par" value={partida} onChange={(e) => setPartida(e.target.value)}>
             {CAMPOS_PARTIDA.map((c) => (
               <option key={c} value={c}>
                 {NOMBRE_CAMPO[c]}
               </option>
             ))}
+            <optgroup label="La última cita de tipo…">
+              {tipos.map((t) => (
+                <option key={t.id} value={`evento:${t.id}`}>
+                  {t.nombre}
+                </option>
+              ))}
+            </optgroup>
           </select>
         </div>
       </div>
@@ -378,5 +391,95 @@ function NuevaRegla({ reglas, onCambio, avisar }: { reglas: Regla[]; onCambio: (
         </button>
       </div>
     </form>
+  )
+}
+
+/** Tipos de cita: los del Excel (visita, comparecencia) y los que se añadan. No se borran: se desactivan. */
+function TiposCita({ avisar }: { avisar: (m: string, e?: boolean) => void }) {
+  const { tipos, recargarTipos, disponible } = useAgenda()
+  const [nombre, setNombre] = useState('')
+  const [icono, setIcono] = useState<string>('event')
+  const [guardando, setGuardando] = useState(false)
+
+  async function guardar(t: TipoCita, msg: string) {
+    setGuardando(true)
+    const err = await (await api()).guardarTipo(t)
+    setGuardando(false)
+    if (err) return avisar('No se pudo guardar: ' + err, true)
+    avisar(msg)
+    recargarTipos()
+  }
+  async function nuevo(e: React.FormEvent) {
+    e.preventDefault()
+    const n = nombre.trim()
+    if (!n || n.length > 40) return avisar('Ponle un nombre (máx. 40 letras)', true)
+    const id = normal(n).replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 40)
+    if (!RE_ID_TIPO.test(id)) return avisar('Ese nombre no vale; usa letras y números', true)
+    if (tipos.some((t) => t.id === id)) return avisar('Ya existe un tipo con ese nombre', true)
+    await guardar({ id, nombre: n, icono, orden: tipos.length, activo: true }, 'Tipo de cita añadido')
+    setNombre('')
+  }
+
+  return (
+    <section className="section aj-sec" aria-labelledby="aj-tipos">
+      <div className="section-title">
+        <span className="icon">category</span>
+        <h2 id="aj-tipos" className="title-m">
+          Tipos de cita
+        </h2>
+      </div>
+      <p className="body-m muted">Visita y comparecencia vienen del Excel. Puedes añadir más; si dejas de usar uno, desactívalo (sus citas no se borran).</p>
+      {!disponible && <p className="aviso-caja">Aún no está activado en la base de datos (falta aplicar la migración de la fase 2).</p>}
+      <ul className="aj-lista">
+        {tipos.map((t) => (
+          <li key={t.id} className={`aj-fila${t.activo ? '' : ' off'}`}>
+            <span className="icon">{t.icono}</span>
+            <span className="aj-txt">
+              <strong>{t.nombre}</strong>
+            </span>
+            {t.id !== 'visita' && (
+              <label className="switch" title={t.activo ? 'Activo' : 'Desactivado'}>
+                <input
+                  type="checkbox"
+                  role="switch"
+                  checked={t.activo}
+                  disabled={guardando || !disponible}
+                  onChange={() => guardar({ ...t, activo: !t.activo }, t.activo ? 'Tipo desactivado' : 'Tipo activado')}
+                  aria-label={`Tipo ${t.nombre} activo`}
+                />
+                <span className="track">
+                  <span className="thumb">
+                    <span className="icon">{t.activo ? 'check' : 'close'}</span>
+                  </span>
+                </span>
+              </label>
+            )}
+          </li>
+        ))}
+      </ul>
+      <form className="aj-form" onSubmit={nuevo}>
+        <h3 className="title-s">Añadir tipo de cita</h3>
+        <div className="fields">
+          <div className="field">
+            <label htmlFor="tc-nombre">Nombre</label>
+            <input id="tc-nombre" value={nombre} maxLength={40} onChange={(e) => setNombre(e.target.value)} placeholder="Ej.: Requerimiento" />
+          </div>
+          <div className="field">
+            <label htmlFor="tc-icono">Icono</label>
+            <select id="tc-icono" value={icono} onChange={(e) => setIcono(e.target.value)}>
+              {ICONOS_TIPO.map((i) => (
+                <option key={i} value={i}>
+                  {i.replace(/_/g, ' ')}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+        <button className="btn tonal" disabled={guardando || !disponible}>
+          <span className="icon">add</span>
+          Añadir
+        </button>
+      </form>
+    </section>
   )
 }

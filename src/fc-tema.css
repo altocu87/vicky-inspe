@@ -1,0 +1,88 @@
+/* ============ Tema «monarch» de FullCalendar adaptado a la app ============
+   Fichero de tokens: las variables --fc-monarch-* apuntan a los tokens de index.css/colores.css,
+   así el calendario cambia solo entre claro y oscuro igual que el resto de la app. */
+.fc-caja {
+  --fc-monarch-primary: var(--primary);
+  --fc-monarch-primary-foreground: var(--on-primary);
+  --fc-monarch-primary-over: color-mix(in srgb, var(--primary) 88%, var(--on-primary));
+  --fc-monarch-primary-down: color-mix(in srgb, var(--primary) 78%, var(--on-primary));
+  --fc-monarch-secondary: var(--secondary-container);
+  --fc-monarch-secondary-foreground: var(--on-secondary-container);
+  --fc-monarch-secondary-over: color-mix(in srgb, var(--secondary-container) 90%, var(--on-secondary-container));
+  --fc-monarch-secondary-down: color-mix(in srgb, var(--secondary-container) 80%, var(--on-secondary-container));
+  --fc-monarch-tertiary: var(--tertiary);
+  --fc-monarch-tertiary-foreground: var(--on-primary);
+  --fc-monarch-tertiary-over: color-mix(in srgb, var(--tertiary) 88%, var(--on-primary));
+  --fc-monarch-tertiary-down: color-mix(in srgb, var(--tertiary) 78%, var(--on-primary));
+  --fc-monarch-event: var(--primary-container);
+  --fc-monarch-event-contrast: var(--on-primary-container);
+  --fc-monarch-highlight: color-mix(in srgb, var(--primary-container) 45%, transparent);
+  --fc-monarch-now: var(--error);
+  --fc-monarch-selected: var(--secondary-container);
+  --fc-monarch-selected-foreground: var(--on-secondary-container);
+  --fc-monarch-selected-over: color-mix(in srgb, var(--secondary-container) 90%, var(--on-secondary-container));
+  --fc-monarch-selected-down: color-mix(in srgb, var(--secondary-container) 80%, var(--on-secondary-container));
+  --fc-monarch-outline: var(--primary);
+  --fc-monarch-ring-color: var(--primary);
+  --fc-monarch-popover: var(--sc-highest);
+  --fc-monarch-popover-foreground: var(--on-surface);
+  --fc-monarch-background: var(--sc-lowest);
+  --fc-monarch-faint: color-mix(in srgb, var(--outline-variant) 30%, transparent);
+  --fc-monarch-muted: color-mix(in srgb, var(--outline-variant) 45%, transparent);
+  --fc-monarch-strong: color-mix(in srgb, var(--outline) 35%, transparent);
+  --fc-monarch-stronger: color-mix(in srgb, var(--outline) 45%, transparent);
+  --fc-monarch-strongest: color-mix(in srgb, var(--outline) 55%, transparent);
+  --fc-monarch-foreground: var(--on-surface);
+  --fc-monarch-strong-foreground: var(--on-surface);
+  --fc-monarch-faint-foreground: var(--outline);
+  --fc-monarch-muted-foreground: var(--on-surface-variant);
+  --fc-monarch-border: var(--outline-variant);
+  --fc-monarch-strong-border: var(--outline);
+
+  border-radius: var(--shape-l);
+  overflow: hidden;
+  background: var(--sc-lowest);
+  color: var(--on-surface);
+  font-size: 14px;
+}
+
+/* Color de cada evento según su capa (mismas variables que las listas: --capa-bg / --capa-fg) */
+.fc-caja .fc-i {
+  --fc-event-color: var(--capa-bg);
+  --fc-event-contrast-color: var(--capa-fg);
+  background-color: var(--capa-bg) !important;
+  border-color: var(--capa) !important;
+  color: var(--capa-fg) !important;
+}
+.fc-caja .fc-i.hecho { opacity: 0.6; }
+.fc-caja .fc-i.hecho .fc-ic-t { text-decoration: line-through; }
+.fc-caja .fc-i.e-fallida { --capa-bg: var(--error-container); --capa-fg: var(--on-error-container); --capa: var(--error); }
+.fc-caja .fc-i.e-hecha { --capa-bg: var(--ok-container); --capa-fg: var(--on-ok-container); --capa: var(--on-ok-container); }
+
+/* Contenido propio de cada evento: icono + hora + título */
+.fc-ic { display: flex; align-items: center; gap: 4px; min-width: 0; overflow: hidden; padding: 1px 2px; font-size: 12.5px; line-height: 1.3; }
+.fc-ic .icon { font-size: 15px; flex: none; }
+.fc-ic-h { flex: none; font-weight: 700; font-variant-numeric: tabular-nums; }
+.fc-ic-t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+
+/* Semana a su medida: lunes «Oficina», domingo y lunes días de visita, festivos */
+.fc-caja .d-visita { background-color: color-mix(in srgb, var(--primary-container) 28%, transparent); }
+.fc-caja .d-festivo { background-color: color-mix(in srgb, var(--warn-container) 45%, transparent); }
+.fc-caja .d-oficina { position: relative; }
+.fc-caja .d-oficina::after {
+  content: 'Oficina';
+  position: absolute; top: 6px; left: 6px;
+  padding: 1px 7px; border-radius: var(--shape-full);
+  font-size: 10.5px; font-weight: 700; letter-spacing: 0.02em;
+  background: var(--secondary-container); color: var(--on-secondary-container);
+  pointer-events: none;
+}
+/* Cabecera de los días: solo el color */
+.fc-caja .dh-visita { background-color: color-mix(in srgb, var(--primary-container) 40%, transparent); }
+.fc-caja .dh-oficina { box-shadow: inset 0 -3px 0 var(--secondary); }
+/* En el año (multimes) no caben las etiquetas: solo el color */
+.fc-caja.v-anio .d-oficina::after { content: none; }
+.fc-caja.v-anio { font-size: 12px; }
+/* En Día y Semana (con horas): hora arriba y título debajo, que se lea entero */
+.fc-caja.v-semana .fc-ic, .fc-caja.v-dia .fc-ic { flex-wrap: wrap; align-items: flex-start; row-gap: 0; }
+.fc-caja.v-semana .fc-ic-t, .fc-caja.v-dia .fc-ic-t { flex-basis: 100%; white-space: normal; overflow-wrap: anywhere; }

@@ -269,3 +269,22 @@ describe('reglas guardadas en la base de datos', () => {
     expect(malos[0].avisos).toEqual(REGLAS_BASE[0].avisos)
   })
 })
+
+describe('reglas que cuentan desde una cita (fase 2)', () => {
+  it('se leen de la base de datos y usan la última cita del tipo', async () => {
+    const { combinarReglas } = await import('./reglas')
+    const reglas = combinarReglas([
+      { id: 'tras_comp', base: false, activa: true, nombre: 'Tras comparecencia', corto: null, partida: 'evento:comparecencia', unidad: 'dias', cantidad: 10, tope: null, estados: null, avisos: null },
+      { id: 'mala', base: false, activa: true, nombre: 'Mala', corto: null, partida: 'evento:<x>', unidad: 'dias', cantidad: 10, tope: null, estados: null, avisos: null },
+    ])
+    expect(reglas.map((r) => r.id)).toEqual(['lim9', 'sig', 'tras_comp'])
+    const o = { id: 'o1', estado: 'EN CURSO', fecha_orden: null, fecha_primera_actuacion: null, fecha_ultima_actuacion: null }
+    const ctx = { hoy: '2026-11-19', reglas, festivos: new Map(), eventos: [
+      { orden_id: 'o1', tipo: 'comparecencia', fecha: '2026-11-02' },
+      { orden_id: 'o1', tipo: 'comparecencia', fecha: '2026-11-10' },
+      { orden_id: 'o2', tipo: 'comparecencia', fecha: '2026-11-15' },
+      { orden_id: 'o1', tipo: 'visita', fecha: '2026-11-18' },
+    ] }
+    expect(plazoDe(o, 'tras_comp', ctx)?.fecha).toBe('2026-11-20')
+  })
+})
