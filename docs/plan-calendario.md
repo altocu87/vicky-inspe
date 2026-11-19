@@ -68,8 +68,10 @@ supabase/functions/resumen-semanal/   Edge Function (reutiliza src/lib/plazos)
    - **A partir de entonces** (propuesta): el minicalendario del formulario **crea la visita en el calendario** y deja de escribir texto. El campo de texto se queda como «Notas de visita (Excel)», editable, para lo heredado y para notas como «NO VISITA». La tabla, la lista del móvil y el CSV muestran «Próxima visita» (sale de los eventos), y el CSV conserva también la columna de texto original.
 3. **Tipos de cita**: `visita` y `comparecencia` (los del Excel). La lista se puede ampliar desde Ajustes (tabla `tipos_cita`).
 4. **Festivos**: Albacete. Nacionales, más autonómicos de Castilla-La Mancha, más locales de Albacete capital. Se cargan por año en la tabla `festivos` (con su ámbito) y se editan en Ajustes. Cada año se revisan con el BOE, el DOCM y el BOP de Albacete; no se inventan.
-5. **Correo**: sin respuesta todavía.
-6. **Proyecto de Supabase**: sin respuesta todavía.
+5. **Correo**: dirección recibida. Se guardará en la tabla `preferencias` y **no** se escribe en el repositorio.
+6. **Proyecto de Supabase**: `vicky-inspe` (ref `nzhebiuybvmkopzayxsa`), en otra cuenta. Acceso desde aquí con un token de la Management API guardado como secreto del entorno.
+
+**Datos reales (consulta de solo lectura, 19-11-2026)**: 457 órdenes. `fecha_visita`: 144 con fechas «dd/mm/aaaa», 302 «NO VISITA», 5 «FALLIDA», 1 «14/04/2025 FALLIDA» y 1 con formato «19-11-24» (este va a la lista de dudosos). `estado_visita`: SIN VISITA 308, REALIZADA 104, 1º FALLIDA 35, 1º FALLIDA y 2º FALLIDA 5, 1º FALLIDA y REALIZADA 4, vacío 1. Extensiones: **no están ni `pg_cron` ni `pg_net`**; se activan en la fase 3. Migraciones aplicadas: las 3 del repositorio.
 
 ## 3. Fases
 
@@ -112,3 +114,4 @@ supabase/functions/resumen-semanal/   Edge Function (reutiliza src/lib/plazos)
 ## 5. Registro
 - 19-11-2026: Paso 0. Código revisado, plan escrito y preguntas enviadas.
 - 19-11-2026: respuestas 1–4 recibidas a través de otra sesión e incorporadas (2 bis). Pendiente: confirmación, correo y proyecto de Supabase.
+- 19-11-2026: la usuaria da el correo y el proyecto. Acceso a Supabase comprobado. Pendiente: visto bueno para la fase 1.
