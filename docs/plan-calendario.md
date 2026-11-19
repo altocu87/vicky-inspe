@@ -1,7 +1,7 @@
 # Plan: calendario integrado con las órdenes
 
 > Documento vivo: sirve de memoria entre sesiones. Se actualiza al cerrar cada fase.
-> Estado: **Fase 1 TERMINADA (rama `calendario`) y Fase 2 TERMINADA (rama `calendario-fase2`). Nada subido a `main`. Migraciones de las fases 1 y 2 APLICADAS en producción el 19-11-2026 (con su permiso). La conversión de `fecha_visita` espera que la usuaria decida los casos dudosos.**
+> Estado: **Fases 1 y 2 TERMINADAS y PUBLICADAS (subidas a `main` el 19-11-2026 con su permiso; despliegue de Vercel correcto). Migraciones de las fases 1 y 2 APLICADAS en producción el 19-11-2026 (con su permiso). La conversión de `fecha_visita` espera que la usuaria decida los casos dudosos.**
 
 ## 0. Lo que hay hoy (comprobado el 19-11-2026)
 
@@ -175,4 +175,5 @@ supabase/functions/resumen-semanal/   Edge Function (reutiliza src/lib/plazos)
 - 19-11-2026: respuestas 1–4 recibidas a través de otra sesión e incorporadas (2 bis). Pendiente: confirmación, correo y proyecto de Supabase.
 - 19-11-2026: la usuaria da el correo y el proyecto. Acceso a Supabase comprobado. Pendiente: visto bueno para la fase 1.
 - 19-11-2026: visto bueno. **Fase 1 terminada** (rama `calendario`). Auditoría de seguridad (apartado 4). Se lanza la fase 2 en otra sesión.
+- 19-11-2026: migraciones de las fases 1 y 2 aplicadas en producción (con permiso). S2 descartada por ahora (1 solo usuario, registro cerrado). Conversión ajustada con sus indicaciones (1ª/2ª visita, detalles) y ventana de resultado con detalles. Fases 1 y 2 subidas a `main` (commit f129923) y desplegadas en Vercel: READY en `vicky-inspe.vercel.app`.
 - 19-11-2026: **Fase 2 terminada** (rama `calendario-fase2`). Migración probada (no aplicada), simulación de la conversión hecha (pendiente de visto bueno), auditoría de la fase 2 (apartado 4). Encargo de la fase 3 en `docs/prompt-fase3.md`.
