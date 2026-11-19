@@ -1,7 +1,7 @@
 # Plan: calendario integrado con las órdenes
 
 > Documento vivo: sirve de memoria entre sesiones. Se actualiza al cerrar cada fase.
-> Estado: **Paso 0. Plan escrito, pendiente del visto bueno y de las respuestas (apartado 2).**
+> Estado: **Paso 0. Respuestas recibidas a través de otra sesión (apartado 2 bis), pendientes de que la usuaria las confirme; faltan el correo y el proyecto de Supabase.**
 
 ## 0. Lo que hay hoy (comprobado el 19-11-2026)
 
@@ -60,6 +60,17 @@ supabase/functions/resumen-semanal/   Edge Function (reutiliza src/lib/plazos)
 5. **Correo.** ¿A qué dirección le llega el resumen? (Propuesta de servicio en la fase 3: **Resend**, gratis hasta 3.000 correos al mes. Tendrías que crear la cuenta, sacar una clave y guardarla como secreto en Supabase. Te lo daré paso a paso.)
 6. **Proyecto de Supabase.** ¿En qué proyecto está la tabla `ordenes`? No la encuentro en los dos a los que tengo acceso.
 
+## 2 bis. Respuestas recibidas (19-11-2026, transmitidas desde otra sesión; pendientes de confirmar)
+
+1. **Otras fechas límite**: «ninguna que recuerde». Se monta el sistema de reglas (ampliable desde Ajustes), pero arranca **solo** con «Límite 9 meses» y «Siguiente actuación».
+2. **`fecha_visita`**: comprobado en el código. El minicalendario de `OrdenForm` (`anadirFechaVisita`) **añade** «dd/mm/aaaa» al final del texto, por eso puede haber varias fechas y notas como «NO VISITA».
+   - **Conversión** (fase 2, una sola vez y repetible sin duplicar): cada «dd/mm/aaaa» se convierte en un evento `visita` enlazado a su orden, con `origen = 'excel'` y una clave única (orden + fecha) para no repetirlo. Estado: se deduce de `estado_visita` cuando el número de fechas encaja con la secuencia (p. ej. «1º FALLIDA, REALIZADA» con 2 fechas → fallida y hecha); si no, futura → pendiente y pasada → hecha. Los casos dudosos van a una lista para revisarlos. **El texto original no se toca.**
+   - **A partir de entonces** (propuesta): el minicalendario del formulario **crea la visita en el calendario** y deja de escribir texto. El campo de texto se queda como «Notas de visita (Excel)», editable, para lo heredado y para notas como «NO VISITA». La tabla, la lista del móvil y el CSV muestran «Próxima visita» (sale de los eventos), y el CSV conserva también la columna de texto original.
+3. **Tipos de cita**: `visita` y `comparecencia` (los del Excel). La lista se puede ampliar desde Ajustes (tabla `tipos_cita`).
+4. **Festivos**: Albacete. Nacionales, más autonómicos de Castilla-La Mancha, más locales de Albacete capital. Se cargan por año en la tabla `festivos` (con su ámbito) y se editan en Ajustes. Cada año se revisan con el BOE, el DOCM y el BOP de Albacete; no se inventan.
+5. **Correo**: sin respuesta todavía.
+6. **Proyecto de Supabase**: sin respuesta todavía.
+
 ## 3. Fases
 
 ### Fase 1: reglas de plazo, vista Plazos y unión básica con la tabla
@@ -100,3 +111,4 @@ supabase/functions/resumen-semanal/   Edge Function (reutiliza src/lib/plazos)
 
 ## 5. Registro
 - 19-11-2026: Paso 0. Código revisado, plan escrito y preguntas enviadas.
+- 19-11-2026: respuestas 1–4 recibidas a través de otra sesión e incorporadas (2 bis). Pendiente: confirmación, correo y proyecto de Supabase.
