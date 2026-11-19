@@ -51,15 +51,16 @@ export function proximoLunes(desde: string): string {
 }
 
 /**
- * Tareas «para la oficina» que tocan un lunes concreto: las no hechas con la casilla marcada
- * y sin fecha, o con fecha hasta ese lunes. Solo tiene sentido en lunes.
+ * Tareas «para la oficina» que tocan un lunes concreto (solo en lunes, y no hechas):
+ * - el PRÓXIMO lunes (hoy, si hoy es lunes): las que no tienen fecha y las que vencían antes;
+ * - un lunes posterior: las que vencen esa semana (del martes anterior a ese lunes);
+ * - un lunes pasado: ninguna (ya salen en su día como tareas normales).
  */
-export function tareasOficina(tareas: readonly Tarea[], lunes: string): Tarea[] {
+export function tareasOficina(tareas: readonly Tarea[], lunes: string, hoy: string): Tarea[] {
   if (!esOficina(lunes)) return []
-  return tareas.filter((t) => t.oficina && !t.hecha && (!t.vence || t.vence <= lunes))
-}
-
-/** Clase/etiqueta de un día en el calendario */
-export function marcaDia(iso: string, festivos: MapaFestivos): { oficina: boolean; visita: boolean; festivo: string | null } {
-  return { oficina: esOficina(iso), visita: esDiaVisita(iso), festivo: festivos.get(iso)?.nombre ?? null }
+  const proximo = proximoLunes(hoy)
+  if (lunes < proximo) return []
+  const pend = tareas.filter((t) => t.oficina && !t.hecha)
+  if (lunes === proximo) return pend.filter((t) => !t.vence || t.vence <= lunes)
+  return pend.filter((t) => t.vence && t.vence > addDias(lunes, -7) && t.vence <= lunes)
 }

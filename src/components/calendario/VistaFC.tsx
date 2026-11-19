@@ -126,20 +126,22 @@ export default function VistaFC({
         dayCellClass={(a) => marcas(isoMarcador(a.date))}
         dayHeaderClass={(a) => ('date' in a && a.date instanceof Date ? marcas(isoMarcador(a.date)).replace(/\bd-/g, 'dh-') : '')}
         eventContent={(a) => {
-          const i = a.event.extendedProps.item as ItemCal
+          // La «sombra» al seleccionar o arrastrar desde fuera no lleva datos propios
+          const i = a.event.extendedProps.item as ItemCal | undefined
           return (
             <span className="fc-ic">
               <span className="icon" aria-hidden>
-                {i.icono}
+                {i?.icono ?? 'add'}
               </span>
               {a.timeText && <span className="fc-ic-h">{a.timeText}</span>}
-              <span className="fc-ic-t">{i.titulo}</span>
+              <span className="fc-ic-t">{i?.titulo ?? a.event.title}</span>
             </span>
           )
         }}
         eventClick={(a) => {
           a.jsEvent.preventDefault()
-          onItem(a.event.extendedProps.item as ItemCal)
+          const i = a.event.extendedProps.item as ItemCal | undefined
+          if (i) onItem(i)
         }}
         select={(s) => {
           const fecha = toIso(s.start)
@@ -148,12 +150,13 @@ export default function VistaFC({
           ref.current?.getApi().unselect()
         }}
         eventDrop={async (a) => {
-          const ok = await onMover(a.event.extendedProps.item as ItemCal, movimiento(a.event.start, a.event.end, a.event.allDay))
-          if (!ok) a.revert()
+          const i = a.event.extendedProps.item as ItemCal | undefined
+          // Si falla al guardar, el evento vuelve a su sitio (el aviso lo da quien guarda)
+          if (!i || !(await onMover(i, movimiento(a.event.start, a.event.end, a.event.allDay)))) a.revert()
         }}
         eventResize={async (a) => {
-          const ok = await onMover(a.event.extendedProps.item as ItemCal, movimiento(a.event.start, a.event.end, a.event.allDay))
-          if (!ok) a.revert()
+          const i = a.event.extendedProps.item as ItemCal | undefined
+          if (!i || !(await onMover(i, movimiento(a.event.start, a.event.end, a.event.allDay)))) a.revert()
         }}
         drop={(a) => {
           const fecha = toIso(a.date)

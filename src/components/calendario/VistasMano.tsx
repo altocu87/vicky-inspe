@@ -45,7 +45,7 @@ export function VistaHoy({ hoy, porDia, tareas, festivos, onNuevo, atrasadas, ve
         fecha={hoy}
         items={porDia.get(hoy) ?? []}
         hoy={hoy}
-        oficina={tareasOficina(tareas, hoy)}
+        oficina={tareasOficina(tareas, hoy, hoy)}
         festivo={festivos.get(hoy)?.nombre}
         vacio="Hoy no tienes nada en el calendario."
         conMapa
@@ -60,7 +60,7 @@ export function VistaHoy({ hoy, porDia, tareas, festivos, onNuevo, atrasadas, ve
             fecha={d}
             items={porDia.get(d) ?? []}
             hoy={hoy}
-            oficina={tareasOficina(tareas, d)}
+            oficina={tareasOficina(tareas, d, hoy)}
             festivo={festivos.get(d)?.nombre}
             vacio={esDiaVisita(d) ? 'Libre para visitas' : 'Nada'}
             conMapa
@@ -78,7 +78,7 @@ export function VistaDiaLista({ fecha, hoy, porDia, tareas, festivos, onNuevo }:
       fecha={fecha}
       items={porDia.get(fecha) ?? []}
       hoy={hoy}
-      oficina={tareasOficina(tareas, fecha)}
+      oficina={tareasOficina(tareas, fecha, hoy)}
       festivo={festivos.get(fecha)?.nombre}
       vacio={esDiaVisita(fecha) ? 'Libre para visitas' : 'Nada este día'}
       conMapa
@@ -98,7 +98,7 @@ export function VistaSemanaLista({ fecha, hoy, porDia, tareas, festivos, onNuevo
           fecha={d}
           items={porDia.get(d) ?? []}
           hoy={hoy}
-          oficina={tareasOficina(tareas, d)}
+          oficina={tareasOficina(tareas, d, hoy)}
           festivo={festivos.get(d)?.nombre}
           vacio={esDiaVisita(d) ? 'Libre para visitas' : 'Nada'}
           onNuevo={onNuevo}
@@ -207,7 +207,7 @@ export function VistaMesMovil({ fecha, hoy, porDia, tareas, festivos, onNuevo, o
         fecha={fecha}
         items={porDia.get(fecha) ?? []}
         hoy={hoy}
-        oficina={tareasOficina(tareas, fecha)}
+        oficina={tareasOficina(tareas, fecha, hoy)}
         festivo={festivos.get(fecha)?.nombre}
         vacio={esDiaVisita(fecha) ? 'Libre para visitas' : 'Nada este día'}
         conMapa

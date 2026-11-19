@@ -33,9 +33,12 @@ describe('semana de trabajo', () => {
   })
   it('tareas para la oficina del lunes', () => {
     const ts = [t({ oficina: true }), t({ oficina: true, vence: '2026-11-30' }), t({ oficina: true, hecha: true }), t({})]
-    expect(tareasOficina(ts, '2026-11-23')).toHaveLength(1)
-    expect(tareasOficina(ts, '2026-11-30')).toHaveLength(2)
-    expect(tareasOficina(ts, '2026-11-24')).toHaveLength(0)
+    const hoy = '2026-11-19'
+    expect(tareasOficina(ts, '2026-11-23', hoy).map((x) => x.vence)).toEqual([null]) // próximo lunes: la sin fecha
+    expect(tareasOficina(ts, '2026-11-30', hoy).map((x) => x.vence)).toEqual(['2026-11-30']) // la de esa semana
+    expect(tareasOficina(ts, '2026-11-16', hoy)).toHaveLength(0) // lunes pasado
+    expect(tareasOficina(ts, '2026-11-24', hoy)).toHaveLength(0) // no es lunes
+    expect(tareasOficina(ts, '2026-11-30', '2026-11-24').map((x) => x.vence)).toEqual([null, '2026-11-30'])
     expect(proximoLunes('2026-11-19')).toBe('2026-11-23')
   })
 })
