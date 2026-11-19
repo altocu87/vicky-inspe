@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { api } from './data/api'
 import { PlazosCtx, useMobile, usePref } from './hooks'
@@ -18,12 +18,14 @@ import { Estadisticas } from './components/Estadisticas'
 import { OrdenForm } from './components/OrdenForm'
 import { ConfirmDelete } from './components/ConfirmDelete'
 import { Ajustes } from './components/Ajustes'
-import { Calendario } from './components/calendario/Calendario'
 import { COLUMNAS, ColumnasMenu, ListaMovil, OCULTAS_DEF, TablaOrdenes, type Sort, type SortKey } from './components/TablaOrdenes'
 import { GestorAgenda } from './components/agenda/Gestor'
 import { AgendaCtx, useAgendaEstado } from './state/agenda'
 import type { Evento } from './lib/eventos'
 import { textoHora } from './lib/eventos'
+
+// El calendario (y la librería de repeticiones) se descarga solo al abrirlo
+const Calendario = lazy(() => import('./components/calendario/Calendario').then((m) => ({ default: m.Calendario })))
 
 type Vista = 'tabla' | 'tarjetas'
 type Snack = { msg: string; err?: boolean; action?: { label: string; fn: () => void } }
@@ -571,7 +573,15 @@ function Panel({ email }: { email: string }) {
             <span />
           </div>
         ) : enCal ? (
-          <Calendario ordenes={visibles} todas={ordenes} ruta={ruta} filtros={filtros} festivos={festivos} onOpen={setEditing} />
+          <Suspense
+            fallback={
+              <div className="loader">
+                <span />
+              </div>
+            }
+          >
+            <Calendario ordenes={visibles} todas={ordenes} ruta={ruta} filtros={filtros} festivos={festivos} onOpen={setEditing} />
+          </Suspense>
         ) : visibles.length === 0 ? (
           <div className="empty">
             <div className="blob">

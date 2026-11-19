@@ -385,3 +385,8 @@ td.acc { white-space: nowrap; }
 .agenda-botones { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
 /* Las tareas, con punto cuadrado (para no confundirlas con los plazos aunque el color se parezca) */
 .punto.c-tareas { border-radius: 1px; }
+/* Móvil: todo lo que se toca, de al menos 44 px */
+@media (max-width: 720px) {
+  .calendario .chip { min-height: 44px; }
+  .calendario .btn.sm { --h: 44px; }
+}

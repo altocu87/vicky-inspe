@@ -18,7 +18,11 @@ Las fechas límite salen de **reglas de plazo** (`src/lib/plazos/reglas.ts`), qu
 
 ## Calendario
 
-- **#calendario**: vista **Plazos**, con todas las fechas límite agrupadas (vencidos, esta semana, la siguiente, este mes y después) y filtros por nivel y tipo de plazo. Usa los mismos filtros que la tabla (estado, «urgentes», «sin tiempo», búsqueda).
+- **#calendario**: vistas **Plazos** (fechas límite agrupadas), **Hoy/Agenda**, **Día**, **Semana**, **Mes** y **Año** (`#calendario?vista=mes&fecha=2026-11-19`). Usa los mismos filtros que la tabla (estado, «urgentes», «sin tiempo», búsqueda).
+- **Visitas, citas y tareas** (tablas `eventos`, `tareas` y `tipos_cita`): capas de colores (Plazos, Visitas y citas, Tareas, Hitos de la orden y Festivos), panel **Por programar**, ficha rápida con «Cómo llegar», «Llamar», «Hecha» y «Fallida» (y la pregunta de si se actualiza la orden), repeticiones y tareas «para la oficina». La semana está hecha a su medida: el lunes es de oficina y el domingo y el lunes de visitas.
+- En el ordenador (FullCalendar 7): crear arrastrando, mover y estirar, y atajos de teclado (`?` para verlos). En el móvil: arranca en «Hoy», mes compacto con puntos, semana en lista, deslizar el dedo y botón «+».
+- Tabla: columna **Próxima visita** (con semáforo) y botón **Programar visita**; el CSV la incluye.
+- La conversión del texto heredado `fecha_visita` está en `supabase/conversiones/` y **solo se ejecuta a mano y con permiso**.
 - Desde cada orden (tabla, tarjetas o lista del móvil), el icono **Ver en el calendario** abre `#calendario?orden=<id>`.
 - **#ajustes**: festivos de Albacete (nacionales, de Castilla-La Mancha y locales) y reglas de plazo.
 - Plan completo y estado de cada fase: [`docs/plan-calendario.md`](docs/plan-calendario.md).
@@ -50,7 +54,7 @@ Para probar las pantallas sin datos reales: `VITE_DEMO=1 npm run dev` (datos inv
 
 ## Base de datos
 
-Las migraciones están en `supabase/migrations`. Para aplicarlas:
+Las migraciones están en `supabase/migrations` (se pueden ejecutar dos veces sin romper nada y nunca borran datos). La conversión única de `fecha_visita` está aparte, en `supabase/conversiones/`. Para aplicar las migraciones:
 
 ```bash
 supabase link --project-ref <ref>

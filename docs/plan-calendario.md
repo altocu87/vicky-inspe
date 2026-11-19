@@ -1,7 +1,7 @@
 # Plan: calendario integrado con las órdenes
 
 > Documento vivo: sirve de memoria entre sesiones. Se actualiza al cerrar cada fase.
-> Estado: **Fase 1 TERMINADA en la rama `calendario` (sin subir a `main`; la migración aún NO está aplicada en producción). Fase 2 en marcha en otra sesión, rama `calendario-fase2`.**
+> Estado: **Fase 1 TERMINADA (rama `calendario`) y Fase 2 TERMINADA (rama `calendario-fase2`). Nada subido a `main`. Ninguna migración aplicada en producción. La conversión de `fecha_visita` espera el visto bueno de la usuaria.**
 
 ## 0. Lo que hay hoy (comprobado el 19-11-2026)
 
@@ -112,6 +112,28 @@ supabase/functions/resumen-semanal/   Edge Function (reutiliza src/lib/plazos)
 - Crear arrastrando, mover y estirar (si falla al guardar, el evento vuelve a su sitio y se avisa) y atajos de teclado.
 - Conversión de `fecha_visita`, si dices que sí (pregunta 2.2).
 
+#### Fase 2: hecho (19-11-2026)
+- **Lógica pura** (`src/lib`, con pruebas): `eventos.ts` (validación de cada fila, tipos de cita, enlaces «Cómo llegar»/«Llamar» seguros), `tareas.ts` (repetición sencilla: al hacerla pasa a la siguiente fecha), `repeticion.ts` (RRULE en UTC, solo el rango visible, tope de 1000; excepciones «solo este» y días quitados) y `repeticionTexto.ts`, `semana.ts` (lunes oficina, domingo y lunes de visita, próximo domingo o lunes libre: no festivo y con menos de 4 visitas pendientes; tareas «para la oficina»), `porProgramar.ts` (órdenes activas con plazo a < 30 días o vencido y sin visita futura, más tareas sin fecha; semáforo de la próxima visita), `visitaEstado.ts` (secuencia del Excel y propuesta de cambios en la orden), `fechaVisita.ts` (conversión del texto del Excel), `capas.ts` (lo que se pinta, por capas y con los mismos filtros que la tabla), `ruta.ts` (vista y fecha en la URL, validadas). **Pruebas: 110** (antes 52).
+- **Motor de plazos**: conectado con `eventos`. Una regla creada en Ajustes puede contar «desde la última cita de un tipo» (partida `evento:<tipo>`; cuentan las citas no canceladas). La migración amplía el CHECK de `reglas_plazo.partida`.
+- **Migración** `20261119112716_calendario_fase2.sql`: `tipos_cita` (visita y comparecencia), `eventos` y `tareas`, con RLS solo para `authenticated`, `revoke all … from anon`, `created_by default auth.uid()`, CHECKs de longitud y valores (estado, RRULE sin DTSTART, teléfono, horas coherentes, excepciones) y `on delete cascade` desde `ordenes`. **Probada**: en una base PostgreSQL 16 local (2 veces, con `anon` sin acceso y los CHECK rechazando datos malos) y en la base real dentro de una transacción deshecha (fase 1 + fase 2, cada una 2 veces): 12 políticas, RLS activa, `anon` sin acceso, 457 órdenes intactas; después solo existe `ordenes`. **NO aplicada.**
+- **Conversión de `fecha_visita`**: `supabase/conversiones/20261119113500_fecha_visita.sql` (FUERA de `migrations`, para que no se aplique sola; usa una función temporal `pg_temp`, sin `security definer`). La misma lógica que `fechaVisita.ts`; con los datos reales (leídos en solo lectura y borrados después) dan **exactamente** el mismo resultado. **Simulación (19-11-2026)**: 142 órdenes → **148 visitas** (104 hechas, 44 fallidas, 0 pendientes); 135 encajan con `estado_visita` y 7 no (3 «SIN VISITA» con 1 fecha → hecha; 3 «1º FALLIDA, REALIZADA» con 1 fecha → hecha; 1 «REALIZADA» con 2 fechas → las dos hechas). **8 dudosas** sin convertir: 5 «FALLIDA» sin fecha, «14/04/2025 FALLIDA», «9/05/2026 29/06/2026» (día con una cifra) y «1º visita 19-11-24; 2º visita el 3-12-24». **Pendiente de su visto bueno.**
+- **Datos**: `api.ts` con eventos (por rango, visitas futuras, por orden, por tipos), tareas (por rango + pendientes sin fecha o atrasadas) y tipos; versión real y demo. Columnas explícitas, filtros solo con fechas validadas, campos de escritura en lista blanca (`soloCampos`). Estado único `src/state/agenda.tsx` (lo que cambia en un sitio se ve en todos) y acciones `src/state/acciones.ts` + `components/agenda/Gestor.tsx`.
+- **Pantallas**: calendario con Plazos, Hoy/Agenda, Día, Semana, Mes y Año; capas con color, icono, contador y botón (Hitos apagada al empezar); panel «Por programar» (arrastrar en el ordenador, botón «Programar» en todas partes); ficha rápida (Editar, Duplicar, Eliminar, Abrir la orden, Hecha/Fallida; en el móvil, hoja inferior con «Cómo llegar» y «Llamar»); formularios de cita (tipo, orden, todo el día/horas, dirección, teléfono, notas, avisos, repetición con «hasta», «solo este / toda la serie») y de tarea (orden, fecha, hora, duración, prioridad, repetición, «para la oficina»); pregunta «¿Actualizo la orden?» al marcar Hecha/Fallida (última actuación, 1.ª actuación si falta y estado de la visita; cada cambio se puede desmarcar). Ordenador: FullCalendar 7.1.5 (tema monarch con los tokens de la app, `src/fc-tema.css`), crear arrastrando, mover y estirar (si falla, vuelve a su sitio), soltar órdenes y tareas desde «Por programar», atajos P G D S M A T J K N / ?. Móvil: arranca en «Hoy», Mes compacto con puntos, Semana en lista, Año a mano, deslizar el dedo, botón «+» encima de la barra, objetivos ≥ 44 px. FullCalendar y el calendario entero se cargan con `import()` diferido (en el móvil FullCalendar no se descarga nunca; la carga inicial pasa de 129 a 105 KB comprimidos).
+- **Tabla y orden**: columna «Próxima visita» con semáforo (antes del plazo / después / sin visita y con prisa), ordenable y ocultable; botón «Programar visita» en cada orden (tabla, lista del móvil); CSV con la próxima visita y la columna de texto original («Notas de visita (Excel)»). `OrdenForm`: «Agenda de esta orden» con plazos, visitas, tareas y botones; el minicalendario CREA la visita en el calendario (en una orden nueva, al guardarla); el texto queda como «Notas de visita (Excel)». Al borrar una orden, «Deshacer» también recupera sus visitas y tareas.
+- **Navegador** (demo, Playwright): ordenador, 375 y 412 px, claro y oscuro, sin desplazamiento horizontal ni errores de JS. Probado mover, crear arrastrando, soltar desde «Por programar», atajos, deslizar y la pregunta de la orden. Build de producción con `vite preview` y las cabeceras de Vercel: **ninguna violación de la CSP** (no ha hecho falta ampliarla).
+
+#### Decisiones de la fase 2 (por si hay que cambiarlas)
+- «Pulsar cualquier cosa de una orden abre su formulario»: los plazos e hitos abren la orden directamente; las visitas/citas y tareas abren la ficha rápida, que tiene «Abrir la orden» (si no, no se podría marcar Hecha/Fallida de un toque).
+- «Día libre» para visitas = domingo o lunes no festivo con menos de 4 visitas pendientes (`VISITAS_POR_DIA` en `semana.ts`).
+- Tareas «para la oficina»: las sin fecha salen el próximo lunes; las que tienen fecha, el lunes de su semana. No salen en «Por programar».
+- En una serie, marcar Hecha/Fallida o editar «solo este» crea una excepción; desde la ficha, «Eliminar» quita solo ese día (la serie entera, desde «Editar»).
+- La «Próxima visita» y «Por programar» miran las visitas pendientes de hoy en adelante (las series de visitas no cuentan para la próxima visita).
+
+#### Pendiente / a tener en cuenta (fase 2)
+- Aplicar las DOS migraciones (fase 1 y fase 2, en ese orden) antes o junto con el despliegue. Sin la de la fase 2 la web funciona (plazos y festivos), pero avisa de que visitas y tareas no están activadas.
+- Conversión de `fecha_visita`: solo con su visto bueno, después de la migración (SQL Editor de Supabase). Luego, revisar a mano las 8 dudosas.
+- `@fullcalendar/core` 7.1.5 aparece en `node_modules` porque lo trae `@fullcalendar/react` 7 (no lo hemos instalado nosotros y no es la v6).
+
 ### Fase 3: alertas y resumen semanal por correo
 - Migraciones: `avisos_orden` (extra, silenciar, posponer), `avisos_enviados` y `preferencias`.
 - Campana dentro de la app, notificaciones del navegador o del móvil (si las acepta) y correo opcional.
@@ -136,6 +158,14 @@ supabase/functions/resumen-semanal/   Edge Function (reutiliza src/lib/plazos)
 | S6 | El token de la Management API guardado en el entorno da control total del proyecto | Medio | Crearlo con caducidad y revocarlo al terminar el proyecto | Avisado |
 | S7 | Sesión sin caducidad por inactividad | Bajo-medio | Caducidad por inactividad (si el plan lo permite) o bloqueo de la app con PIN | Proponer |
 
+### Auditoría de la fase 2 (19-11-2026)
+- **Base de datos**: las 3 tablas nuevas con RLS, 4 políticas `to authenticated` cada una, `revoke all … from anon` (comprobado: `anon` no puede ni leer), sin `security definer`, `created_by default auth.uid()`. CHECKs: longitudes de todos los textos, estados y prioridades cerrados, teléfono solo con cifras/espacios/«+», RRULE con formato fijo y sin DTSTART, horas coherentes, máximo de avisos y de días quitados. Claves foráneas: el tipo debe existir; borrar una orden borra sus citas y tareas (cascada). La migración no toca `ordenes` (prueba automática).
+- **Conversión**: fuera de las migraciones automáticas; no modifica `ordenes`; repetible sin duplicar (`clave_origen` única); función temporal `pg_temp` (desaparece al acabar la sesión). Los datos reales usados para la simulación se leyeron en solo lectura y se borraron; no están en el repositorio ni en las pruebas.
+- **App**: todo lo que llega de la base de datos pasa por `leerEvento` / `leerTarea` / `leerTipo` (fila rara = descartada); lo que llega de la URL por `leerRuta` (vista de una lista cerrada, fecha válida entre 1990 y 2100, orden con formato UUID); lo que llega de un elemento arrastrado se valida (UUID y orden existente). Solo se escriben los campos de una lista blanca. Ni `dangerouslySetInnerHTML` ni `eval` (comprobado con búsqueda). «Cómo llegar» y «Llamar»: datos codificados con `encodeURIComponent`, solo `https:` y `tel:` (comprobado con `esquemaPermitido`), `rel="noopener noreferrer"`. Los iconos de los tipos de cita salen de una lista cerrada.
+- **CSP**: sin cambios; FullCalendar 7 funciona con la CSP actual (probado con el build y `vite preview`, cero violaciones).
+- **Dependencias**: `@fullcalendar/react` 7.1.5 (MIT), `rrule` 2.8.1 (BSD), `temporal-polyfill` 1.0.8 (MIT). `npm audit`: 0 vulnerabilidades.
+- **Sin cambios** en S1–S7: siguen pendientes de su visto bueno.
+
 ## 5. Cómo cierro cada fase
 `npm run lint`, pruebas y `npm run build` en verde. Capturas con Playwright en el ordenador, a 375 px y a 412 px, en claro y en oscuro, comprobando que no haya desplazamiento horizontal. Actualizo este documento y el README, te lo resumo y **te pregunto antes de subirlo a `main`**.
 
@@ -144,3 +174,4 @@ supabase/functions/resumen-semanal/   Edge Function (reutiliza src/lib/plazos)
 - 19-11-2026: respuestas 1–4 recibidas a través de otra sesión e incorporadas (2 bis). Pendiente: confirmación, correo y proyecto de Supabase.
 - 19-11-2026: la usuaria da el correo y el proyecto. Acceso a Supabase comprobado. Pendiente: visto bueno para la fase 1.
 - 19-11-2026: visto bueno. **Fase 1 terminada** (rama `calendario`). Auditoría de seguridad (apartado 4). Se lanza la fase 2 en otra sesión.
+- 19-11-2026: **Fase 2 terminada** (rama `calendario-fase2`). Migración probada (no aplicada), simulación de la conversión hecha (pendiente de visto bueno), auditoría de la fase 2 (apartado 4). Encargo de la fase 3 en `docs/prompt-fase3.md`.

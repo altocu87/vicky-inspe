@@ -2,7 +2,7 @@
 // En el móvil sale como hoja desde abajo, con botones grandes: Cómo llegar, Llamar, Hecha y Fallida.
 import { enlaceMapa, enlaceTel, esquemaPermitido, NOMBRE_ESTADO_EVENTO, textoHora, type Evento, type TipoCita } from '../../lib/eventos'
 import { fmt, nombreDia } from '../../lib/fechas'
-import { nombreRepeticion } from '../../lib/repeticion'
+import { nombreRepeticion } from '../../lib/repeticionTexto'
 import { NOMBRE_PRIORIDAD, NOMBRE_REPETICION, type Tarea } from '../../lib/tareas'
 import type { Orden } from '../../lib/ordenes'
 import { Dialogo } from './piezas'
