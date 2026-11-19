@@ -6,6 +6,7 @@ import type { ReglaFila } from '../lib/plazos/reglas'
 import { CAMPOS_EVENTO, leerEvento, leerTipo, soloCampos, type Evento, type TipoCita } from '../lib/eventos'
 import { CAMPOS_TAREA, leerTarea, type Tarea } from '../lib/tareas'
 import { addDias, esIso } from '../lib/fechas'
+import { leerCambio, type CambioHistorial } from '../lib/historial'
 import { mensajeError, type Backend, type Resultado } from './api'
 
 const ok = <T>(data: T): Resultado<T> => ({ data, error: null })
@@ -187,6 +188,15 @@ export const backendSupabase: Backend = {
   async eliminarTarea(id) {
     const { error } = await supabase.from('tareas').delete().eq('id', id)
     return error ? mensajeError(error) : null
+  },
+  async listarHistorial(ordenId) {
+    const { data, error } = await supabase
+      .from('historial_ordenes')
+      .select('id,orden_id,momento,tipo,campo,antes,despues')
+      .eq('orden_id', ordenId)
+      .order('momento')
+      .limit(2000)
+    return error ? ko(error) : ok((data ?? []).map(leerCambio).filter((c): c is CambioHistorial => !!c))
   },
   async listarTipos() {
     const { data, error } = await supabase.from('tipos_cita').select(COLS_TIPO).order('orden')

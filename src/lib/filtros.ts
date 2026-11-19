@@ -28,7 +28,7 @@ export function pasaFiltros(o: Orden, f: Filtros, ctx: ContextoPlazos): boolean 
 }
 
 export function contarEstados(ordenes: readonly Orden[], ctx: ContextoPlazos) {
-  const s = { 'EN CURSO': 0, 'PTE ENTREGA': 0, FINALIZADA: 0, urgentes: 0, sintiempo: 0 }
+  const s = { 'EN CURSO': 0, 'PTE ENTREGA': 0, DEVUELTA: 0, FINALIZADA: 0, urgentes: 0, sintiempo: 0 }
   for (const o of ordenes) {
     if (o.estado in s) s[o.estado]++
     const n = nivelOrden(o, ctx)
@@ -44,6 +44,7 @@ export function nombreFiltro(f: Filtro): string {
   if (f === 'sintiempo') return 'Sin tiempo'
   if (f === 'EN CURSO') return 'En curso'
   if (f === 'PTE ENTREGA') return 'Pte. entrega'
+  if (f === 'DEVUELTA') return 'Devuelta'
   if (f === 'FINALIZADA') return 'Finalizada'
   return ''
 }

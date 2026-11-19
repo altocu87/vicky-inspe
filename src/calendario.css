@@ -395,3 +395,29 @@ td.acc { white-space: nowrap; }
 .resultado-cab .icon { font-size: 28px; }
 .resultado-cab.ok { background: var(--ok-container); color: var(--on-ok-container); }
 .resultado-cab.ko { background: var(--error-container); color: var(--on-error-container); }
+
+/* ---- Historial de la orden ---- */
+.historial { border-radius: var(--shape-l); background: var(--sc-low); padding: 4px 12px 12px; }
+.historial > summary { list-style: none; display: flex; align-items: center; gap: 10px; min-height: 52px; cursor: pointer; color: var(--primary); }
+.historial > summary::-webkit-details-marker { display: none; }
+.historial > summary .title-m { flex: 1; color: var(--on-surface); }
+.historial[open] > summary .chev { transform: rotate(180deg); }
+.historial > summary:focus-visible { outline: 3px solid var(--primary); outline-offset: 2px; border-radius: var(--shape-s); }
+.hist-lista { list-style: none; margin: 4px 0 0; padding: 0 0 0 4px; display: flex; flex-direction: column; }
+.hist { position: relative; display: flex; gap: 12px; padding: 8px 0 8px 0; }
+.hist::before { content: ''; position: absolute; left: 17px; top: 0; bottom: 0; width: 2px; background: var(--outline-variant); }
+.hist:first-child::before { top: 24px; }
+.hist:last-child::before { bottom: calc(100% - 24px); }
+.hist-ic { position: relative; z-index: 1; width: 36px; height: 36px; flex: none; border-radius: 50%; display: grid; place-items: center; background: var(--sc-high); color: var(--on-surface-variant); }
+.hist-ic .icon { font-size: 20px; }
+.hist.c-hito .hist-ic { background: var(--secondary-container); color: var(--on-secondary-container); }
+.hist.c-visita .hist-ic { background: var(--primary-container); color: var(--on-primary-container); }
+.hist.c-tarea .hist-ic { background: var(--tertiary-container); color: var(--on-tertiary-container); }
+.hist.futura { opacity: 0.75; }
+.hist-txt { display: flex; flex-direction: column; gap: 2px; min-width: 0; padding-top: 2px; }
+.hist-fecha { font-size: 13px; font-weight: 650; color: var(--on-surface-variant); display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.hist-dia { font-weight: 500; }
+.hist-tit { overflow-wrap: anywhere; }
+.hist-det { font-size: 14px; color: var(--on-surface-variant); white-space: pre-wrap; overflow-wrap: anywhere; padding: 6px 10px; border-radius: var(--shape-s); background: var(--sc); margin-top: 2px; }
+.hist-salto { position: absolute; left: 44px; top: -9px; font-size: 11px; font-weight: 700; color: var(--outline); background: var(--sc-low); padding: 0 6px; border-radius: var(--shape-full); }
+.hist-nota { margin: 8px 0 0; font-size: 12px; }

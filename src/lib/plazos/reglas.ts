@@ -43,7 +43,7 @@ export interface Regla {
   base: boolean
 }
 
-export const ESTADOS_ACTIVOS: readonly Estado[] = ['EN CURSO', 'PTE ENTREGA']
+export const ESTADOS_ACTIVOS: readonly Estado[] = ['EN CURSO', 'PTE ENTREGA', 'DEVUELTA']
 export const AVISOS_DEF: readonly number[] = [30, 15, 7, 3, 1, 0]
 
 /** Las dos fechas límite del Excel. NO cambiar sin actualizar las pruebas. */
@@ -92,7 +92,7 @@ export interface ReglaFila {
 }
 
 const RE_ID = /^[a-z0-9_]{2,40}$/
-const ESTADOS_VALIDOS = ['EN CURSO', 'PTE ENTREGA', 'FINALIZADA']
+const ESTADOS_VALIDOS = ['EN CURSO', 'PTE ENTREGA', 'DEVUELTA', 'FINALIZADA']
 
 function avisosValidos(v: unknown): number[] | null {
   if (!Array.isArray(v) || v.length > 12) return null

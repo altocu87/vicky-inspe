@@ -2,6 +2,7 @@
 :root {
   --c-curso: #dce6ff;   --on-c-curso: #17398a;  --s-curso: #4f7bea;
   --c-pte: #ffe1c2;     --on-c-pte: #713c00;    --s-pte: #f08a24;
+  --c-dev: #ffc58f;     --on-c-dev: #5c2600;    --s-dev: #ea6a00;
   --c-fin: #d3f1de;     --on-c-fin: #155233;    --s-fin: #4caf7a;
   --c-urg: #ffdce5;     --on-c-urg: #8c1639;    --s-urg: #e04a75;
   --c-venc: #ffd5cb;    --on-c-venc: #8e1e0b;   --s-venc: #e2553a;
@@ -11,6 +12,7 @@
   :root {
     --c-curso: #23365f;  --on-c-curso: #d9e3ff;  --s-curso: #86a6ff;
     --c-pte: #4b3118;    --on-c-pte: #ffdcb9;    --s-pte: #ffb26b;
+    --c-dev: #6b3108;    --on-c-dev: #ffdcc2;    --s-dev: #ff9a4d;
     --c-fin: #1d3f2c;    --on-c-fin: #bdeecd;    --s-fin: #7fd6a2;
     --c-urg: #57202f;    --on-c-urg: #ffd9e2;    --s-urg: #ff8fb0;
     --c-venc: #5a2219;   --on-c-venc: #ffd6cc;   --s-venc: #ff9a84;
@@ -20,9 +22,11 @@
 
 .e-curso { --c: var(--c-curso); --on-c: var(--on-c-curso); --s: var(--s-curso); }
 .e-pte   { --c: var(--c-pte);   --on-c: var(--on-c-pte);   --s: var(--s-pte); }
+.e-dev   { --c: var(--c-dev);   --on-c: var(--on-c-dev);   --s: var(--s-dev); }
 .e-fin   { --c: var(--c-fin);   --on-c: var(--on-c-fin);   --s: var(--s-fin); }
 .s-curso { --c: var(--c-curso); --on-c: var(--on-c-curso); --s: var(--s-curso); }
 .s-pte   { --c: var(--c-pte);   --on-c: var(--on-c-pte);   --s: var(--s-pte); }
+.s-dev   { --c: var(--c-dev);   --on-c: var(--on-c-dev);   --s: var(--s-dev); }
 .s-urg   { --c: var(--c-urg);   --on-c: var(--on-c-urg);   --s: var(--s-urg); }
 .s-venc  { --c: var(--c-venc);  --on-c: var(--on-c-venc);  --s: var(--s-venc); }
 
@@ -43,15 +47,15 @@
 }
 
 /* Etiquetas de estado */
-.badge.e-curso, .badge.e-pte, .badge.e-fin { background: var(--c); color: var(--on-c); }
-.badge.e-curso::before, .badge.e-pte::before, .badge.e-fin::before {
+.badge.e-curso, .badge.e-pte, .badge.e-dev, .badge.e-fin { background: var(--c); color: var(--on-c); }
+.badge.e-curso::before, .badge.e-pte::before, .badge.e-dev::before, .badge.e-fin::before {
   content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--s); margin-right: 2px;
 }
-.badge.e-curso .icon, .badge.e-pte .icon, .badge.e-fin .icon { display: none; }
+.badge.e-curso .icon, .badge.e-pte .icon, .badge.e-dev .icon, .badge.e-fin .icon { display: none; }
 
 /* Totales en pastel */
-.stat.s-curso, .stat.s-pte, .stat.s-urg, .stat.s-venc { background: var(--c); color: var(--on-c); }
-.stat.s-curso .n, .stat.s-pte .n, .stat.s-urg:not(.active) .n, .stat.s-venc:not(.active) .n { color: var(--on-c); }
+.stat.s-curso, .stat.s-pte, .stat.s-dev, .stat.s-urg, .stat.s-venc { background: var(--c); color: var(--on-c); }
+.stat.s-curso .n, .stat.s-pte .n, .stat.s-dev .n, .stat.s-urg:not(.active) .n, .stat.s-venc:not(.active) .n { color: var(--on-c); }
 .stat .icon.fill {
   width: 40px; height: 40px; border-radius: 14px; display: grid; place-items: center;
   background: color-mix(in srgb, var(--s, var(--primary)) 22%, transparent); color: var(--s, var(--primary));
@@ -63,26 +67,26 @@
 .stat.active .icon.fill { background: color-mix(in srgb, var(--c) 25%, transparent); color: var(--c); }
 
 /* Chips de filtro con color */
-.chip.e-curso.on, .chip.e-pte.on, .chip.e-fin.on { background: var(--c); color: var(--on-c); }
-.chip.e-curso:not(.on) .icon, .chip.e-pte:not(.on) .icon, .chip.e-fin:not(.on) .icon { color: var(--s); }
-.chip:not(.e-curso):not(.e-pte):not(.e-fin).on { background: var(--c-todos); color: var(--on-c-todos); }
+.chip.e-curso.on, .chip.e-pte.on, .chip.e-dev.on, .chip.e-fin.on { background: var(--c); color: var(--on-c); }
+.chip.e-curso:not(.on) .icon, .chip.e-pte:not(.on) .icon, .chip.e-dev:not(.on) .icon, .chip.e-fin:not(.on) .icon { color: var(--s); }
+.chip:not(.e-curso):not(.e-pte):not(.e-dev):not(.e-fin).on { background: var(--c-todos); color: var(--on-c-todos); }
 
 /* Filas de la tabla tintadas por estado */
-.xtable tbody tr.e-curso td, .xtable tbody tr.e-pte td { background: color-mix(in srgb, var(--c) 38%, var(--sc-lowest)); }
-.xtable tbody tr.e-curso:hover td, .xtable tbody tr.e-pte:hover td { background: color-mix(in srgb, var(--c) 75%, var(--sc-lowest)); }
+.xtable tbody tr.e-curso td, .xtable tbody tr.e-pte td, .xtable tbody tr.e-dev td { background: color-mix(in srgb, var(--c) 38%, var(--sc-lowest)); }
+.xtable tbody tr.e-curso:hover td, .xtable tbody tr.e-pte:hover td, .xtable tbody tr.e-dev:hover td { background: color-mix(in srgb, var(--c) 75%, var(--sc-lowest)); }
 .xtable tbody tr.e-fin:hover td { background: color-mix(in srgb, var(--c) 45%, var(--sc-lowest)); }
 .xtable tbody tr td:first-child { box-shadow: inset 5px 0 0 var(--s, transparent); padding-left: 16px; }
 .xtable tbody tr.e-fin td:first-child { box-shadow: inset 5px 0 0 color-mix(in srgb, var(--s) 45%, transparent); }
 
 /* Lista móvil tintada */
-.mrow.e-curso, .mrow.e-pte { background: color-mix(in srgb, var(--c) 55%, var(--sc-lowest)); }
+.mrow.e-curso, .mrow.e-pte, .mrow.e-dev { background: color-mix(in srgb, var(--c) 55%, var(--sc-lowest)); }
 .mrow { box-shadow: inset 5px 0 0 var(--s, transparent); padding-left: 18px; }
 .mrow.e-fin { box-shadow: inset 5px 0 0 color-mix(in srgb, var(--s) 45%, transparent); }
-.mrow.e-curso:active, .mrow.e-pte:active { background: var(--c); }
+.mrow.e-curso:active, .mrow.e-pte:active, .mrow.e-dev:active { background: var(--c); }
 
 /* Tarjetas tintadas */
-.card.e-curso, .card.e-pte { background: color-mix(in srgb, var(--c) 50%, var(--sc-lowest)); }
-.card.e-curso:hover, .card.e-pte:hover { background: var(--c); }
+.card.e-curso, .card.e-pte, .card.e-dev { background: color-mix(in srgb, var(--c) 50%, var(--sc-lowest)); }
+.card.e-curso:hover, .card.e-pte:hover, .card.e-dev:hover { background: var(--c); }
 .card { box-shadow: inset 0 5px 0 var(--s, transparent); }
 .card.e-fin { box-shadow: inset 0 5px 0 color-mix(in srgb, var(--s) 45%, transparent); }
 

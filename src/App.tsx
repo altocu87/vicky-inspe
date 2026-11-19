@@ -355,6 +355,7 @@ function Panel({ email }: { email: string }) {
   const statCards: { k: Filtro; label: string; n: number; icon: string; cls?: string }[] = [
     { k: 'EN CURSO', label: 'En curso', n: stats['EN CURSO'], icon: 'progress_activity', cls: 's-curso' },
     { k: 'PTE ENTREGA', label: 'Pte. entrega', n: stats['PTE ENTREGA'], icon: 'hourglass_top', cls: 's-pte' },
+    { k: 'DEVUELTA', label: 'Devueltas', n: stats.DEVUELTA, icon: 'assignment_return', cls: 's-dev' },
     { k: 'urgentes', label: 'Menos de 30 días', n: stats.urgentes, icon: 'warning', cls: 's-urg' },
     { k: 'sintiempo', label: 'Sin tiempo', n: stats.sintiempo, icon: 'error', cls: 's-venc' },
   ]
@@ -465,7 +466,7 @@ function Panel({ email }: { email: string }) {
               <div>
                 <h1 className="display">{enCal ? 'Calendario' : 'Órdenes'}</h1>
                 <p className="body-m muted" style={{ margin: '2px 0 0' }}>
-                  {stats['EN CURSO'] + stats['PTE ENTREGA']} activas · {ordenes.length} en total
+                  {stats['EN CURSO'] + stats['PTE ENTREGA'] + stats.DEVUELTA} activas · {ordenes.length} en total
                 </p>
               </div>
               <div className="hero-actions">
@@ -490,7 +491,7 @@ function Panel({ email }: { email: string }) {
             <div>
               <h1 className="display">{enCal ? 'Calendario' : 'Órdenes'}</h1>
               <p className="body-m muted" style={{ margin: '6px 0 0' }}>
-                {ordenes.length} en total · {stats['EN CURSO'] + stats['PTE ENTREGA']} activas
+                {ordenes.length} en total · {stats['EN CURSO'] + stats['PTE ENTREGA'] + stats.DEVUELTA} activas
               </p>
             </div>
             <label className="search">

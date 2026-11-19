@@ -7,6 +7,7 @@ import type { Festivo } from '../lib/habiles'
 import type { ReglaFila } from '../lib/plazos/reglas'
 import type { Evento, EventoInput, TipoCita } from '../lib/eventos'
 import type { Tarea, TareaInput } from '../lib/tareas'
+import type { CambioHistorial } from '../lib/historial'
 
 export type Resultado<T> = { data: T; error: null } | { data: null; error: string }
 
@@ -43,6 +44,8 @@ export interface Backend {
   crearTarea(t: TareaInput): Promise<Resultado<Tarea>>
   actualizarTarea(id: string, cambios: Partial<TareaInput>): Promise<Resultado<Tarea>>
   eliminarTarea(id: string): Promise<string | null>
+  /** Cambios guardados de una orden (los escribe la base de datos; aquí solo se leen) */
+  listarHistorial(ordenId: string): Promise<Resultado<CambioHistorial[]>>
   listarTipos(): Promise<Resultado<TipoCita[]>>
   guardarTipo(t: TipoCita): Promise<string | null>
 }

@@ -61,7 +61,7 @@ export function GestorAgenda({
       const p = o ? propuestaAlMarcar(o, fecha, r, e.tipo === 'visita') : null
       setPregunta({ evento: res, fecha, orden: o, propuesta: p && hayPropuesta(p) ? p : null, resultado: r })
     },
-    [ag, avisar, porId],
+    [ag, porId],
   )
 
   const alternarTarea = useCallback(

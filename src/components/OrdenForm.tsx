@@ -7,6 +7,7 @@ import { plazosDe } from '../lib/plazos/motor'
 import { ESTADO_ICONO } from './OrdenCard'
 import { Plazo } from './Plazo'
 import { BotonVerCalendario } from './plazos'
+import { HistorialOrden } from './HistorialOrden'
 import { useAgenda } from '../state/agenda'
 import { useAcciones } from '../state/acciones'
 import { eventoNuevo, NOMBRE_ESTADO_EVENTO, textoHora } from '../lib/eventos'
@@ -354,6 +355,12 @@ export function OrdenForm({ orden, onClose, onSaved, onDelete, onError }: Props)
             )}
             {nueva && <p className="body-m muted agenda-vacio">Guarda la orden para añadirle visitas y tareas.</p>}
           </section>
+
+          {!nueva && (
+            <section className="section">
+              <HistorialOrden orden={orden} />
+            </section>
+          )}
 
           <section className="section">
             <div className="section-title">

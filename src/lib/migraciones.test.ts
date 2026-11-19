@@ -8,6 +8,8 @@ const ficheros = import.meta.glob('../../supabase/migrations/*.sql', { query: '?
 const HISTORICAS = ['20261118190000', '20261118210000', '20261118230000']
 const nuevas = Object.entries(ficheros).filter(([f]) => !HISTORICAS.some((h) => f.includes(h)))
 const sinComentarios = (s: string) => s.replace(/--.*$/gm, '')
+/** Únicas funciones SECURITY DEFINER permitidas (justificadas en su migración) */
+const DEFINER_PERMITIDAS = ['registrar_historial_orden']
 
 describe('migraciones', () => {
   it('hay migraciones nuevas y su nombre lleva fecha y hora de 14 cifras', () => {
@@ -16,7 +18,8 @@ describe('migraciones', () => {
   })
   it.each(nuevas)('%s no borra tablas ni datos', (_f, sql) => {
     const s = sinComentarios(sql).toLowerCase()
-    expect(s).not.toMatch(/drop\s+table|truncate|delete\s+from|drop\s+column|drop\s+schema/)
+    // «truncate» solo se permite para QUITAR ese permiso (revoke … truncate …), nunca para vaciar una tabla
+    expect(s).not.toMatch(/drop\s+table|(^|;)\s*truncate\b|delete\s+from|drop\s+column|drop\s+schema/m)
     expect(s).not.toMatch(/update\s+public\.ordenes/)
   })
   it.each(nuevas)('%s: toda tabla nueva tiene RLS, es idempotente y nada para anon', (_f, sql) => {
@@ -34,8 +37,14 @@ describe('migraciones', () => {
     // Las políticas solo para usuarios con sesión
     for (const m of s.matchAll(/create policy [^;]*;/g)) expect(m[0]).toContain('to authenticated')
     expect(s).not.toMatch(/\bto (anon|public)\b/)
-    // Ninguna función salta la seguridad de filas
-    expect(s).not.toMatch(/security definer/)
+    // Ninguna función salta la seguridad de filas, salvo las justificadas de la lista
+    // (con search_path vacío y sin permiso para que nadie las llame)
+    for (const m of s.matchAll(/create or replace function public\.(\w+)\([^)]*\)[^$]*?security definer[^$]*?\$\$/g)) {
+      expect(DEFINER_PERMITIDAS, `${m[1]} usa security definer sin estar justificado`).toContain(m[1])
+      expect(m[0]).toContain("set search_path = ''")
+      expect(s).toContain(`revoke all on function public.${m[1]}() from public, anon, authenticated`)
+    }
+    expect((s.match(/security definer/g) ?? []).length).toBe([...s.matchAll(/create or replace function public\.(\w+)\([^)]*\)[^$]*?security definer/g)].length)
   })
   it('los festivos de la migración son exactamente los de festivosAlbacete.ts', () => {
     const sql = Object.entries(ficheros).find(([f]) => f.includes('calendario_fase1'))![1]
@@ -69,6 +78,21 @@ describe('migración de la fase 2', () => {
     expect(sql).toContain("estado in ('pendiente', 'hecha', 'fallida', 'cancelada')")
     expect(sql).toContain("rrule !~ 'dtstart'")
     expect(sql).toMatch(/char_length\(titulo\) between 1 and 200/)
+  })
+})
+
+describe('estado DEVUELTA e historial', () => {
+  const sql = sinComentarios(Object.entries(ficheros).find(([f]) => f.includes('devuelta_historial'))![1]).toLowerCase()
+  it('el estado nuevo está en la base de datos y en la app', async () => {
+    const { ESTADOS } = await import('./ordenes')
+    expect(sql).toContain("check (estado in ('en curso', 'pte entrega', 'devuelta', 'finalizada'))")
+    expect([...ESTADOS]).toEqual(['EN CURSO', 'PTE ENTREGA', 'DEVUELTA', 'FINALIZADA'])
+  })
+  it('el historial solo se puede leer (lo escribe el disparador)', () => {
+    expect([...sql.matchAll(/create policy [^;]* on public\.historial_ordenes[^;]*;/g)].map((m) => m[0])).toEqual([
+      expect.stringContaining('for select to authenticated'),
+    ])
+    expect(sql).toContain('revoke insert, update, delete, truncate on public.historial_ordenes from authenticated')
   })
 })
 

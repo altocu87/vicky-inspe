@@ -2,7 +2,7 @@
 import { hoyIso } from './fechas'
 import { contextoBase, peorNivelDe, plazoDe, proximoPlazo, type ContextoPlazos, type Nivel, type OrdenPlazos, type PlazoCalc } from './plazos/motor'
 
-export const ESTADOS = ['EN CURSO', 'PTE ENTREGA', 'FINALIZADA'] as const
+export const ESTADOS = ['EN CURSO', 'PTE ENTREGA', 'DEVUELTA', 'FINALIZADA'] as const
 export const ESTADOS_DOCUM = ['AUN NADA', 'SOLICITADA', 'RECIBIDA', 'NO SE PIDE'] as const
 export const ESTADOS_VISITA = ['SIN VISITA', '1º FALLIDA', '1º FALLIDA, 2º FALLIDA', '1º FALLIDA, REALIZADA', 'REALIZADA'] as const
 export const SI_NO = ['SI', 'NO SE PONE'] as const
@@ -57,6 +57,7 @@ export const ORDEN_VACIA: OrdenInput = {
 export const LABELS: Record<string, string> = {
   'EN CURSO': 'En curso',
   'PTE ENTREGA': 'Pte. entrega',
+  DEVUELTA: 'Devuelta',
   FINALIZADA: 'Finalizada',
   'AUN NADA': 'Aún nada',
   SOLICITADA: 'Solicitada',

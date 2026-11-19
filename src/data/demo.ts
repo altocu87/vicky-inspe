@@ -9,6 +9,7 @@ import type { ReglaFila } from '../lib/plazos/reglas'
 import { leerEvento, soloCampos, CAMPOS_EVENTO, TIPOS_BASE, eventoNuevo, ultimoDia, type Evento, type TipoCita } from '../lib/eventos'
 import { leerTarea, tareaNueva, CAMPOS_TAREA, type Tarea } from '../lib/tareas'
 import { proximoLunes } from '../lib/semana'
+import type { CambioHistorial } from '../lib/historial'
 import type { Backend } from './api'
 
 const EMPRESAS = [
@@ -45,7 +46,7 @@ function generar(): Orden[] {
     // Plazos repartidos: vencidos, esta semana, próximas semanas y meses
     const primera = addDias(edate(hoy, -9), 40 - i * 9)
     const ultima = i % 3 === 0 ? null : addDias(edate(hoy, -5), 25 - i * 4)
-    const estado: Estado = i === 24 ? 'FINALIZADA' : i % 5 === 4 ? 'PTE ENTREGA' : 'EN CURSO'
+    const estado: Estado = i === 24 ? 'FINALIZADA' : i === 9 || i === 17 ? 'DEVUELTA' : i % 5 === 4 ? 'PTE ENTREGA' : 'EN CURSO'
     return {
       id: `00000000-0000-4000-8000-${String(i + 1).padStart(12, '0')}`,
       num_orden: `2/00${String(4800 + i * 7).padStart(5, '0')}/26`,
@@ -121,6 +122,20 @@ function generarTareas(): Tarea[] {
 let eventos = generarEventos()
 let tareas = generarTareas()
 let tipos: TipoCita[] = [...TIPOS_BASE]
+// Historial (en la base de datos lo escribe un disparador; aquí se imita)
+let historial: CambioHistorial[] = []
+let idHist = 1
+const CAMPOS_HIST = ['estado', 'num_orden', 'empresa', 'fecha_orden', 'fecha_primera_actuacion', 'fecha_ultima_actuacion', 'fecha_cierre', 'objeto', 'estado_docum', 'estado_visita', 'fecha_visita', 'situacion_general', 'tareas_pendientes', 'comparecencia_subida', 'doc_subida', 'claves'] as const
+function anotar(antes: Orden | null, despues: Orden) {
+  const momento = new Date().toISOString()
+  if (!antes) historial.push({ id: idHist++, orden_id: despues.id, momento, tipo: 'alta', campo: null, antes: null, despues: despues.estado })
+  else
+    for (const c of CAMPOS_HIST)
+      if ((antes[c] ?? null) !== (despues[c] ?? null))
+        historial.push({ id: idHist++, orden_id: despues.id, momento, tipo: 'cambio', campo: c, antes: antes[c] ?? null, despues: despues[c] ?? null })
+}
+// Un cambio de ejemplo hace unos días
+historial.push({ id: idHist++, orden_id: ordenes[9].id, momento: new Date(Date.now() - 5 * 86_400_000).toISOString(), tipo: 'cambio', campo: 'estado', antes: 'EN CURSO', despues: 'DEVUELTA' })
 let festivos: Festivo[] = [...FESTIVOS_ALBACETE]
 let reglas: ReglaFila[] = []
 const espera = () => new Promise((r) => setTimeout(r, 120))
@@ -144,11 +159,14 @@ export const backendDemo: Backend = {
   async crearOrden(p) {
     const o = { ...(p as Orden), id: crypto.randomUUID(), created_at: new Date().toISOString(), updated_at: new Date().toISOString() }
     ordenes = [o, ...ordenes]
+    anotar(null, o)
     return { data: o, error: null }
   },
   async actualizarOrden(id, p) {
-    const o = { ...ordenes.find((x) => x.id === id)!, ...p, updated_at: new Date().toISOString() } as Orden
+    const antes = ordenes.find((x) => x.id === id)!
+    const o = { ...antes, ...p, updated_at: new Date().toISOString() } as Orden
     ordenes = ordenes.map((x) => (x.id === id ? o : x))
+    anotar(antes, o)
     return { data: o, error: null }
   },
   async eliminarOrden(id) {
@@ -156,6 +174,7 @@ export const backendDemo: Backend = {
     // Como en la base de datos (on delete cascade)
     eventos = eventos.filter((x) => x.orden_id !== id)
     tareas = tareas.filter((x) => x.orden_id !== id)
+    historial = historial.filter((x) => x.orden_id !== id)
     return null
   },
   async listarFestivos(desde, hasta) {
@@ -256,6 +275,9 @@ export const backendDemo: Backend = {
   async eliminarTarea(id) {
     tareas = tareas.filter((x) => x.id !== id)
     return null
+  },
+  async listarHistorial(id) {
+    return { data: historial.filter((x) => x.orden_id === id), error: null }
   },
   async listarTipos() {
     return { data: [...tipos], error: null }
