@@ -1,14 +1,9 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import {
-  fmtCorta,
-  label,
-  plazo9Meses,
-  plazoSiguiente,
-  textoDias,
-  type Orden,
-  type Plazo,
-} from '../lib/ordenes'
+import { usePlazosCtx } from '../hooks'
+import { fmtCorta, label, textoDias, type Orden } from '../lib/ordenes'
+import { plazoDe, proximoPlazo, type ContextoPlazos, type PlazoCalc } from '../lib/plazos/motor'
 import { ESTADO_CLASE } from './OrdenCard'
+import { BotonVerCalendario, MarcaInhabil } from './plazos'
 
 export type SortKey =
   | 'num_orden'
@@ -28,6 +23,7 @@ export type SortKey =
   | 'comparecencia_subida'
   | 'doc_subida'
   | 'claves'
+  | 'prox'
   | 'urgencia'
 export type Sort = { key: SortKey; dir: 'asc' | 'desc' }
 
@@ -38,17 +34,19 @@ type Col = {
   width?: number
   fixed?: boolean // no se puede ocultar
   align?: 'center' | 'right'
-  render: (o: Orden) => ReactNode
+  render: (o: Orden, ctx: ContextoPlazos) => ReactNode
   title?: (o: Orden) => string | undefined
 }
 
-function Dias({ p, fin }: { p: Plazo | null; fin: boolean }) {
+function Dias({ p, fin, conTipo }: { p: PlazoCalc | null; fin: boolean; conTipo?: boolean }) {
   if (!p) return <span className="muted">—</span>
   if (fin) return <span className="muted">{fmtCorta(p.fecha)}</span>
   return (
     <span className="dcell">
       <span className="dfecha">{fmtCorta(p.fecha)}</span>
+      <MarcaInhabil inhabil={p.inhabil} />
       <span className={`dpill n-${p.nivel}`}>{textoDias(p.dias)}</span>
+      {conTipo && <span className="dtipo">{p.regla.corto}</span>}
     </span>
   )
 }
@@ -98,7 +96,7 @@ export const COLUMNAS: Col[] = [
     label: 'Límite 9 meses',
     short: 'Límite 9 m',
     width: 168,
-    render: (o) => <Dias p={plazo9Meses(o)} fin={o.estado === 'FINALIZADA'} />,
+    render: (o, ctx) => <Dias p={plazoDe(o, 'lim9', ctx)} fin={o.estado === 'FINALIZADA'} />,
   },
   { key: 'fecha_ultima_actuacion', label: 'Última actuación', short: 'Últ. act.', width: 96, render: (o) => fmtCorta(o.fecha_ultima_actuacion) },
   {
@@ -106,15 +104,49 @@ export const COLUMNAS: Col[] = [
     label: 'Límite siguiente actuación',
     short: 'Límite sig.',
     width: 168,
-    render: (o) => <Dias p={plazoSiguiente(o)} fin={o.estado === 'FINALIZADA'} />,
+    render: (o, ctx) => <Dias p={plazoDe(o, 'sig', ctx)} fin={o.estado === 'FINALIZADA'} />,
+  },
+  {
+    key: 'prox',
+    label: 'Próximo plazo',
+    short: 'Próx. plazo',
+    width: 200,
+    render: (o, ctx) => (o.estado === 'FINALIZADA' ? <span className="muted">—</span> : <Dias p={proximoPlazo(o, ctx)} fin={false} conTipo />),
   },
   { key: 'objeto', label: 'Objeto', width: 220, render: (o) => txt(o.objeto), title: (o) => o.objeto ?? undefined },
-  { key: 'estado_docum', label: 'Documentación', short: 'Docum.', width: 116, render: (o) => <span className={`tag d-${(o.estado_docum ?? '').replace(/\s/g, '')}`}>{label(o.estado_docum)}</span> },
+  {
+    key: 'estado_docum',
+    label: 'Documentación',
+    short: 'Docum.',
+    width: 116,
+    render: (o) => <span className={`tag d-${(o.estado_docum ?? '').replace(/\s/g, '')}`}>{label(o.estado_docum)}</span>,
+  },
   { key: 'estado_visita', label: 'Visita', width: 150, render: (o) => txt(label(o.estado_visita)), title: (o) => o.estado_visita ?? undefined },
   { key: 'fecha_visita', label: 'Fecha visita', short: 'F. visita', width: 140, render: (o) => txt(o.fecha_visita), title: (o) => o.fecha_visita ?? undefined },
-  { key: 'situacion_general', label: 'Situación general', short: 'Situación', width: 260, render: (o) => txt(o.situacion_general), title: (o) => o.situacion_general ?? undefined },
-  { key: 'tareas_pendientes', label: 'Tareas pendientes', short: 'Tareas', width: 260, render: (o) => txt(o.tareas_pendientes), title: (o) => o.tareas_pendientes ?? undefined },
-  { key: 'comparecencia_subida', label: '¿Comparecencia subida?', short: 'Comp.', width: 72, align: 'center', render: (o) => <SiNoCell v={o.comparecencia_subida} /> },
+  {
+    key: 'situacion_general',
+    label: 'Situación general',
+    short: 'Situación',
+    width: 260,
+    render: (o) => txt(o.situacion_general),
+    title: (o) => o.situacion_general ?? undefined,
+  },
+  {
+    key: 'tareas_pendientes',
+    label: 'Tareas pendientes',
+    short: 'Tareas',
+    width: 260,
+    render: (o) => txt(o.tareas_pendientes),
+    title: (o) => o.tareas_pendientes ?? undefined,
+  },
+  {
+    key: 'comparecencia_subida',
+    label: '¿Comparecencia subida?',
+    short: 'Comp.',
+    width: 72,
+    align: 'center',
+    render: (o) => <SiNoCell v={o.comparecencia_subida} />,
+  },
   { key: 'doc_subida', label: '¿Doc. subida?', short: 'Doc.', width: 64, align: 'center', render: (o) => <SiNoCell v={o.doc_subida} /> },
   { key: 'claves', label: 'Claves', width: 68, align: 'center', render: (o) => <SiNoCell v={o.claves} /> },
 ]
@@ -148,11 +180,7 @@ export function ColumnasMenu({ ocultas, setOcultas }: { ocultas: SortKey[]; setO
             const on = !ocultas.includes(c.key)
             return (
               <label key={c.key} className="menu-item" role="menuitemcheckbox" aria-checked={on}>
-                <input
-                  type="checkbox"
-                  checked={on}
-                  onChange={() => setOcultas(on ? [...ocultas, c.key] : ocultas.filter((k) => k !== c.key))}
-                />
+                <input type="checkbox" checked={on} onChange={() => setOcultas(on ? [...ocultas, c.key] : ocultas.filter((k) => k !== c.key))} />
                 <span className="check">
                   <span className="icon">check</span>
                 </span>
@@ -182,6 +210,7 @@ export function TablaOrdenes({
   ocultas: SortKey[]
   onOpen: (o: Orden) => void
 }) {
+  const ctx = usePlazosCtx()
   const cols = COLUMNAS.filter((c) => !ocultas.includes(c.key))
   let left = 0
   const sticky = new Map<SortKey, number>()
@@ -197,6 +226,7 @@ export function TablaOrdenes({
           {cols.map((c) => (
             <col key={c.key} style={{ width: c.width }} />
           ))}
+          <col style={{ width: 52 }} />
         </colgroup>
         <thead>
           <tr>
@@ -222,6 +252,9 @@ export function TablaOrdenes({
                 </th>
               )
             })}
+            <th className="acc">
+              <span className="sr-only">Acciones</span>
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -240,9 +273,12 @@ export function TablaOrdenes({
                   style={sticky.has(c.key) ? { left: sticky.get(c.key) } : undefined}
                   title={c.title?.(o)}
                 >
-                  {c.render(o)}
+                  {c.render(o, ctx)}
                 </td>
               ))}
+              <td className="acc">
+                <BotonVerCalendario orden={o} />
+              </td>
             </tr>
           ))}
         </tbody>
@@ -253,12 +289,14 @@ export function TablaOrdenes({
 
 /** Lista compacta para móvil */
 export function ListaMovil({ ordenes, onOpen }: { ordenes: Orden[]; onOpen: (o: Orden) => void }) {
+  const ctx = usePlazosCtx()
   return (
     <ul className="mlist">
       {ordenes.map((o) => {
         const fin = o.estado === 'FINALIZADA'
-        const p9 = plazo9Meses(o)
-        const ps = plazoSiguiente(o)
+        const p9 = plazoDe(o, 'lim9', ctx)
+        const ps = plazoDe(o, 'sig', ctx)
+        const otros = fin ? [] : proximoOtros(o, ctx)
         return (
           <li key={o.id}>
             <button className={`mrow ${ESTADO_CLASE[o.estado]}${fin ? ' fin' : ''}`} onClick={() => onOpen(o)}>
@@ -271,27 +309,33 @@ export function ListaMovil({ ordenes, onOpen }: { ordenes: Orden[]; onOpen: (o: 
                 <span aria-hidden>·</span>
                 <span>{fmtCorta(o.fecha_orden)}</span>
               </div>
-              {!fin && (p9 || ps) && (
+              {!fin && (p9 || ps || otros.length > 0) && (
                 <div className="mrow-plazos">
-                  {p9 && (
-                    <span className={`mp n-${p9.nivel}`}>
-                      <span className="mp-l">9 meses</span>
-                      <span className="mp-v">{textoDias(p9.dias)}</span>
-                    </span>
-                  )}
-                  {ps && (
-                    <span className={`mp n-${ps.nivel}`}>
-                      <span className="mp-l">Siguiente</span>
-                      <span className="mp-v">{textoDias(ps.dias)}</span>
-                    </span>
-                  )}
+                  {[p9, ps, ...otros]
+                    .filter((p): p is PlazoCalc => !!p)
+                    .map((p) => (
+                      <span key={p.regla.id} className={`mp n-${p.nivel}`}>
+                        <span className="mp-l">{p.regla.corto}</span>
+                        <span className="mp-v">{textoDias(p.dias)}</span>
+                        <MarcaInhabil inhabil={p.inhabil} />
+                      </span>
+                    ))}
                 </div>
               )}
               {!fin && o.tareas_pendientes && <span className="mrow-task">{o.tareas_pendientes}</span>}
             </button>
+            <BotonVerCalendario orden={o} className="mrow-cal" />
           </li>
         )
       })}
     </ul>
   )
+}
+
+/** Plazos de reglas añadidas en Ajustes (las dos del Excel ya se muestran aparte) */
+function proximoOtros(o: Orden, ctx: ContextoPlazos): PlazoCalc[] {
+  return ctx.reglas
+    .filter((r) => r.id !== 'lim9' && r.id !== 'sig' && r.activa)
+    .map((r) => plazoDe(o, r.id, ctx))
+    .filter((p): p is PlazoCalc => !!p && p.aplica)
 }

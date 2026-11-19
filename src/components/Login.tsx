@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { supabase } from '../lib/supabase'
+import { api } from '../data/api'
 import { Logo } from './Logo'
 
 export function Login() {
@@ -13,9 +13,9 @@ export function Login() {
     e.preventDefault()
     setLoading(true)
     setError(null)
-    const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password })
+    const error = await (await api()).entrar(email.trim(), password)
     setLoading(false)
-    if (error) setError('Correo o contraseña incorrectos.')
+    if (error) setError(error + '.')
   }
 
   return (

@@ -1,7 +1,7 @@
 # Plan: calendario integrado con las órdenes
 
 > Documento vivo: sirve de memoria entre sesiones. Se actualiza al cerrar cada fase.
-> Estado: **Paso 0 terminado. Todas las preguntas respondidas; pendiente del visto bueno para empezar la fase 1.**
+> Estado: **Fase 1 TERMINADA en la rama `calendario` (sin subir a `main`; la migración aún NO está aplicada en producción). Fase 2 en marcha en otra sesión, rama `calendario-fase2`.**
 
 ## 0. Lo que hay hoy (comprobado el 19-11-2026)
 
@@ -60,7 +60,7 @@ supabase/functions/resumen-semanal/   Edge Function (reutiliza src/lib/plazos)
 5. **Correo.** ¿A qué dirección le llega el resumen? (Propuesta de servicio en la fase 3: **Resend**, gratis hasta 3.000 correos al mes. Tendrías que crear la cuenta, sacar una clave y guardarla como secreto en Supabase. Te lo daré paso a paso.)
 6. **Proyecto de Supabase.** ¿En qué proyecto está la tabla `ordenes`? No la encuentro en los dos a los que tengo acceso.
 
-## 2 bis. Respuestas recibidas (19-11-2026, transmitidas desde otra sesión; pendientes de confirmar)
+## 2 bis. Respuestas (19-11-2026, confirmadas por la usuaria)
 
 1. **Otras fechas límite**: «ninguna que recuerde». Se monta el sistema de reglas (ampliable desde Ajustes), pero arranca **solo** con «Límite 9 meses» y «Siguiente actuación».
 2. **`fecha_visita`**: comprobado en el código. El minicalendario de `OrdenForm` (`anadirFechaVisita`) **añade** «dd/mm/aaaa» al final del texto, por eso puede haber varias fechas y notas como «NO VISITA».
@@ -83,6 +83,22 @@ supabase/functions/resumen-semanal/   Edge Function (reutiliza src/lib/plazos)
 - Pantalla `#calendario` (mismo mecanismo que `#estadisticas`) con la **vista Plazos** hecha a mano: grupos Vencidos / Esta semana / La siguiente / Este mes / Después; filtros por tipo y nivel; marca de fin de semana o festivo; al pulsar, se abre la orden. En el móvil, tarjetas grandes.
 - Tabla, tarjetas y `ListaMovil`: columna «Próximo plazo» (que se puede ordenar y ocultar) e icono «Ver en el calendario» (`#calendario?orden=id`). El CSV añade el próximo plazo.
 - `OrdenForm`: apartado «Agenda de esta orden» (de momento, solo sus plazos).
+
+
+#### Fase 1: hecho (19-11-2026)
+- **Lógica pura** (`src/lib`): `fechas.ts` (fechas locales, `edate`, semanas), `habiles.ts` (días hábiles y motivo del día inhábil), `festivosAlbacete.ts` (festivos verificados), `plazos/reglas.ts` (las reglas y su validación al leerlas de la BD), `plazos/motor.ts` (cálculo, topes en cadena sin bucles, reglas que salen de un evento, que es el punto de enganche de la fase 2), `plazos/lista.ts` (vista Plazos), `filtros.ts` (filtros compartidos), `todoElDia.ts` (fin exclusivo ↔ inclusivo), `ruta.ts` (pantalla por `#`, validada).
+- **Pruebas (Vitest, 52)**: las dos reglas del Excel dan EXACTAMENTE las mismas fechas que antes (más de 16 000 combinaciones contra una copia literal del código anterior); `peorNivel` y `diasMinimos` también. Días hábiles con festivos (puente de diciembre y Semana Santa de 2027). Cambio de hora. Todo el día. Agrupación. Ruta manipulada. Migraciones (no borran, RLS, `drop policy if exists`, nada para `anon`, festivos del SQL = los de `festivosAlbacete.ts`). Cabeceras de seguridad.
+- **Datos**: `src/data/api.ts` es el único acceso (`supabaseBackend.ts` real; `demo.ts` solo en desarrollo con `VITE_DEMO=1`, y no llega al build de producción, comprobado). Columnas pedidas explícitamente y festivos solo de año−1 a año+2.
+- **Migración** `20261119085251_calendario_fase1.sql`: tablas `festivos` (26 festivos 2026-2027) y `reglas_plazo` (ajustes de las reglas base + reglas personalizadas, con CHECKs; `base` solo para `lim9`/`sig`). **Probada en la BD real dentro de una transacción deshecha, ejecutándola 2 veces**: OK, `anon` no puede leer, RLS activa y 8 políticas. **No aplicada todavía.**
+- **Pantallas**: `#calendario` (vista Plazos hecha a mano: grupos, filtros por nivel y tipo, marca de inhábil y tarjetas grandes en el móvil), `#calendario?orden=id`, `#ajustes` (festivos por año con aviso si faltan los locales; reglas: activar/desactivar, crear y borrar). Tabla: columna «Próximo plazo» (se puede ordenar y ocultar) e icono «Ver en el calendario»; también en las tarjetas y en `ListaMovil`. `OrdenForm`: apartado «Agenda de esta orden». CSV: próximo plazo, nombre del fichero sin `toISOString` y protección contra la inyección de fórmulas. Navegación: segmentado Órdenes/Calendario en el ordenador y barra inferior en el móvil (el FAB queda por encima de ella).
+- **Seguridad**: `vercel.json` con CSP estricta, `X-Frame-Options: DENY`, HSTS, `no-referrer` y `Permissions-Policy`; probada con el build de producción en Chromium sin ninguna violación de la CSP. Mensajes de error sin detalles internos.
+- **Navegador**: ordenador, 375 y 412 px, claro y oscuro: sin desplazamiento horizontal, objetivos táctiles ≥ 44 px y sin errores de JS.
+
+#### Pendiente / a tener en cuenta
+- **Fiestas locales de Albacete 2027**: aún no publicadas; añadirlas en Ajustes (la app avisa).
+- **Al subir a `main`**: aplicar la migración en Supabase (proyecto `nzhebiuybvmkopzayxsa`) ANTES o justo con el despliegue. Si la web nueva llega antes que la migración, funciona igual con los festivos incluidos y las reglas base (está preparado), pero no se podrá guardar en Ajustes.
+- La CSP permite conectar solo con `nzhebiuybvmkopzayxsa.supabase.co`: si algún día cambia el proyecto, hay que cambiar `vercel.json` y `seguridad.headers.json`.
+- En Vercel las variables solo están en «Production»: las vistas previas de las ramas no tienen datos.
 
 ### Fase 2: calendario con visitas y tareas, y «Por programar»
 - Migraciones: `eventos` (con repetición RRULE, días quitados y excepciones) y `tareas` (con «para la oficina (lunes)»).
@@ -108,10 +124,23 @@ supabase/functions/resumen-semanal/   Edge Function (reutiliza src/lib/plazos)
 - Plantillas de cita.
 - Estadísticas: visitas hechas y fallidas por mes, y plazos cumplidos frente a vencidos.
 
-## 4. Cómo cierro cada fase
+## 4. Seguridad: hallazgos de la auditoría (19-11-2026) y propuestas
+
+| # | Hallazgo | Riesgo | Propuesta | Estado |
+|---|---|---|---|---|
+| S1 | Contraseña mínima de 6 caracteres, sin requisitos | Medio | Subir a 12+ con letras y números (Supabase → Auth → Providers → Email) | Pendiente de su visto bueno |
+| S2 | Las políticas RLS dejan a CUALQUIER usuario con sesión (hoy solo hay 1 y el registro está cerrado) | Bajo hoy, alto si se abre el registro o se crea otro usuario | Lista de usuarios autorizados (`usuarios_autorizados`) y políticas `using (es_autorizado())` en todas las tablas | Pendiente de su visto bueno (toca `ordenes`) |
+| S3 | MFA (TOTP) activo en Supabase pero la app no lo usa | Medio (móvil en la calle) | Segundo factor con app de códigos al iniciar sesión | Proponer en la fase 4 |
+| S4 | La protección contra contraseñas filtradas está desactivada | Bajo | Activarla (puede requerir plan Pro) | Pendiente |
+| S5 | La web no tenía cabeceras de seguridad | Medio | `vercel.json` | **Hecho en la fase 1** |
+| S6 | El token de la Management API guardado en el entorno da control total del proyecto | Medio | Crearlo con caducidad y revocarlo al terminar el proyecto | Avisado |
+| S7 | Sesión sin caducidad por inactividad | Bajo-medio | Caducidad por inactividad (si el plan lo permite) o bloqueo de la app con PIN | Proponer |
+
+## 5. Cómo cierro cada fase
 `npm run lint`, pruebas y `npm run build` en verde. Capturas con Playwright en el ordenador, a 375 px y a 412 px, en claro y en oscuro, comprobando que no haya desplazamiento horizontal. Actualizo este documento y el README, te lo resumo y **te pregunto antes de subirlo a `main`**.
 
-## 5. Registro
+## 6. Registro
 - 19-11-2026: Paso 0. Código revisado, plan escrito y preguntas enviadas.
 - 19-11-2026: respuestas 1–4 recibidas a través de otra sesión e incorporadas (2 bis). Pendiente: confirmación, correo y proyecto de Supabase.
 - 19-11-2026: la usuaria da el correo y el proyecto. Acceso a Supabase comprobado. Pendiente: visto bueno para la fase 1.
+- 19-11-2026: visto bueno. **Fase 1 terminada** (rama `calendario`). Auditoría de seguridad (apartado 4). Se lanza la fase 2 en otra sesión.

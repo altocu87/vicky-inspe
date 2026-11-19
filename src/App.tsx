@@ -1,66 +1,28 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
-import { supabase } from './lib/supabase'
-import {
-  ESTADOS,
-  diasMinimos,
-  fmtCorta,
-  label,
-  peorNivel,
-  plazo9Meses,
-  plazoSiguiente,
-  type Estado,
-  type Orden,
-} from './lib/ordenes'
+import { api } from './data/api'
+import { PlazosCtx, useMobile, usePref } from './hooks'
+import { addDias, hoyIso } from './lib/fechas'
+import { FESTIVOS_ALBACETE } from './lib/festivosAlbacete'
+import { mapaFestivos, type Festivo } from './lib/habiles'
+import { contarEstados, nombreFiltro, pasaFiltros, type Filtro } from './lib/filtros'
+import { ESTADOS, diasMinimos, fmtCorta, type Orden } from './lib/ordenes'
+import { plazoDe, proximoPlazo, type ContextoPlazos } from './lib/plazos/motor'
+import { combinarReglas, type ReglaFila } from './lib/plazos/reglas'
+import { leerRuta, type Ruta } from './lib/ruta'
+import { irA } from './nav'
 import { Login } from './components/Login'
 import { Logo } from './components/Logo'
 import { OrdenCard } from './components/OrdenCard'
 import { Estadisticas } from './components/Estadisticas'
 import { OrdenForm } from './components/OrdenForm'
 import { ConfirmDelete } from './components/ConfirmDelete'
+import { Ajustes } from './components/Ajustes'
+import { Calendario } from './components/calendario/Calendario'
 import { COLUMNAS, ColumnasMenu, ListaMovil, OCULTAS_DEF, TablaOrdenes, type Sort, type SortKey } from './components/TablaOrdenes'
 
-type Filtro = 'todos' | 'urgentes' | 'sintiempo' | Estado
 type Vista = 'tabla' | 'tarjetas'
 type Snack = { msg: string; err?: boolean; action?: { label: string; fn: () => void } }
-
-const normal = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
-
-// Preferencias del usuario en este navegador
-function usePref<T>(key: string, def: T): [T, (v: T) => void] {
-  const [v, setV] = useState<T>(() => {
-    try {
-      const raw = localStorage.getItem('vi:' + key)
-      return raw ? (JSON.parse(raw) as T) : def
-    } catch {
-      return def
-    }
-  })
-  const set = useCallback(
-    (nv: T) => {
-      setV(nv)
-      try {
-        localStorage.setItem('vi:' + key, JSON.stringify(nv))
-      } catch {
-        /* sin almacenamiento */
-      }
-    },
-    [key],
-  )
-  return [v, set]
-}
-
-function useMobile() {
-  const q = '(max-width: 720px)'
-  const [m, setM] = useState(() => window.matchMedia(q).matches)
-  useEffect(() => {
-    const mq = window.matchMedia(q)
-    const h = () => setM(mq.matches)
-    mq.addEventListener('change', h)
-    return () => mq.removeEventListener('change', h)
-  }, [])
-  return m
-}
 
 const SORTS_MOVIL: { id: string; label: string; sort: Sort }[] = [
   { id: 'rec', label: 'Más recientes', sort: { key: 'fecha_orden', dir: 'desc' } },
@@ -69,14 +31,16 @@ const SORTS_MOVIL: { id: string; label: string; sort: Sort }[] = [
   { id: 'emp', label: 'Empresa (A-Z)', sort: { key: 'empresa', dir: 'asc' } },
 ]
 
-function valorOrden(o: Orden, k: SortKey): string | number | null {
+function valorOrden(o: Orden, k: SortKey, ctx: ContextoPlazos): string | number | null {
   switch (k) {
     case 'urgencia':
-      return diasMinimos(o)
+      return diasMinimos(o, ctx)
     case 'lim9':
-      return plazo9Meses(o)?.fecha ?? null
+      return plazoDe(o, 'lim9', ctx)?.fecha ?? null
     case 'sig':
-      return plazoSiguiente(o)?.fecha ?? null
+      return plazoDe(o, 'sig', ctx)?.fecha ?? null
+    case 'prox':
+      return o.estado === 'FINALIZADA' ? null : (proximoPlazo(o, ctx)?.fecha ?? null)
     case 'estado':
       return ESTADOS.indexOf(o.estado)
     default:
@@ -84,20 +48,31 @@ function valorOrden(o: Orden, k: SortKey): string | number | null {
   }
 }
 
-function exportarCsv(rows: Orden[]) {
+function exportarCsv(rows: Orden[], ctx: ContextoPlazos) {
   const cols = COLUMNAS
   const val = (o: Orden, k: SortKey): string => {
-    if (k === 'lim9') return plazo9Meses(o) ? fmtCorta(plazo9Meses(o)!.fecha) : ''
-    if (k === 'sig') return plazoSiguiente(o) ? fmtCorta(plazoSiguiente(o)!.fecha) : ''
+    if (k === 'lim9' || k === 'sig') {
+      const p = plazoDe(o, k, ctx)
+      return p ? fmtCorta(p.fecha) : ''
+    }
+    if (k === 'prox') {
+      const p = o.estado === 'FINALIZADA' ? null : proximoPlazo(o, ctx)
+      return p ? `${fmtCorta(p.fecha)} (${p.regla.nombre})` : ''
+    }
     if (k.startsWith('fecha_') && k !== 'fecha_visita') return o[k as keyof Orden] ? fmtCorta(o[k as keyof Orden] as string) : ''
     return (o[k as keyof Orden] as string | null) ?? ''
   }
-  const esc = (s: string) => (/[";\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s)
+  // Evita que Excel interprete un texto como fórmula (inyección CSV): se antepone un apóstrofo
+  const seguro = (s: string) => (/^[=+\-@\t\r]/.test(s) ? "'" + s : s)
+  const esc = (v: string) => {
+    const s = seguro(v)
+    return /[";\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
+  }
   const lines = [cols.map((c) => esc(c.label)).join(';'), ...rows.map((o) => cols.map((c) => esc(val(o, c.key))).join(';'))]
   const blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' })
   const a = document.createElement('a')
   a.href = URL.createObjectURL(blob)
-  a.download = `ordenes-${new Date().toISOString().slice(0, 10)}.csv`
+  a.download = `ordenes-${hoyIso()}.csv`
   a.click()
   setTimeout(() => URL.revokeObjectURL(a.href), 1000)
 }
@@ -157,9 +132,18 @@ export default function App() {
   const [session, setSession] = useState<Session | null | undefined>(undefined)
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => setSession(data.session))
-    const { data } = supabase.auth.onAuthStateChange((_e, s) => setSession(s))
-    return () => data.subscription.unsubscribe()
+    let quitar = () => {}
+    let vivo = true
+    api().then(async (b) => {
+      const s = await b.sesion()
+      if (!vivo) return
+      setSession(s)
+      quitar = b.alCambiarSesion(setSession)
+    })
+    return () => {
+      vivo = false
+      quitar()
+    }
   }, [])
 
   if (session === undefined)
@@ -176,6 +160,9 @@ function Panel({ email }: { email: string }) {
   const mobile = useMobile()
   const [ordenes, setOrdenes] = useState<Orden[]>([])
   const [loading, setLoading] = useState(true)
+  const [festivos, setFestivos] = useState<Festivo[]>([])
+  const [reglasFilas, setReglasFilas] = useState<ReglaFila[]>([])
+  // Filtros: UN solo estado para tabla, tarjetas y calendario
   const [q, setQ] = useState('')
   const [filtro, setFiltro] = useState<Filtro>('todos')
   const [ocultarFin, setOcultarFin] = usePref('ocultarFin', true)
@@ -186,21 +173,24 @@ function Panel({ email }: { email: string }) {
   const [deleting, setDeleting] = useState<Orden | null>(null)
   const [snack, setSnack] = useState<Snack | null>(null)
   const [buscando, setBuscando] = useState(false)
-  const [pantalla, setPantalla] = useState<'lista' | 'stats'>(() => (window.location.hash === '#estadisticas' ? 'stats' : 'lista'))
+  const [ruta, setRuta] = useState<Ruta>(() => leerRuta(window.location.hash))
+  const pantalla = ruta.pantalla
 
   useEffect(() => {
-    const h = () => setPantalla(window.location.hash === '#estadisticas' ? 'stats' : 'lista')
+    const h = () => {
+      setRuta(leerRuta(window.location.hash))
+      window.scrollTo(0, 0)
+    }
     window.addEventListener('popstate', h)
-    return () => window.removeEventListener('popstate', h)
+    window.addEventListener('hashchange', h)
+    return () => {
+      window.removeEventListener('popstate', h)
+      window.removeEventListener('hashchange', h)
+    }
   }, [])
-  function abrirStats() {
-    window.history.pushState(null, '', '#estadisticas')
-    setPantalla('stats')
-    window.scrollTo(0, 0)
-  }
-  function cerrarStats() {
-    if (window.location.hash === '#estadisticas') window.history.back()
-    else setPantalla('lista')
+  function volver() {
+    if (window.history.length > 1 && window.location.hash) window.history.back()
+    else irA({ pantalla: 'lista' }, true)
   }
   const snackTimer = useRef<number | undefined>(undefined)
 
@@ -211,50 +201,60 @@ function Panel({ email }: { email: string }) {
   }, [])
 
   const cargar = useCallback(async () => {
-    const { data, error } = await supabase.from('ordenes').select('*').order('fecha_orden', { ascending: false })
-    if (error) showSnack({ msg: 'Error al cargar: ' + error.message, err: true })
-    else setOrdenes(data as Orden[])
+    const { data, error } = await (await api()).listarOrdenes()
+    if (error !== null) showSnack({ msg: 'Error al cargar: ' + error, err: true })
+    else setOrdenes(data)
     setLoading(false)
   }, [showSnack])
 
+  // Festivos (del año pasado al siguiente) y reglas de plazo guardadas en Ajustes
+  const cargarConfig = useCallback(async () => {
+    const b = await api()
+    const hoy = hoyIso()
+    const anio = Number(hoy.slice(0, 4))
+    const [f, r] = await Promise.all([b.listarFestivos(`${anio - 1}-01-01`, `${anio + 2}-12-31`), b.listarReglas()])
+    // Si aún no existen las tablas o falla la red, se usan los festivos incluidos en la app
+    setFestivos(f.error === null ? f.data : [...FESTIVOS_ALBACETE])
+    setReglasFilas(r.error === null ? r.data : [])
+    if (f.error !== null || r.error !== null) console.warn('Configuración del calendario no disponible; se usan los valores por defecto')
+  }, [])
+
   useEffect(() => {
     cargar()
-  }, [cargar])
+    cargarConfig()
+  }, [cargar, cargarConfig])
 
-  const stats = useMemo(() => {
-    const s = { 'EN CURSO': 0, 'PTE ENTREGA': 0, FINALIZADA: 0, urgentes: 0, sintiempo: 0 }
-    for (const o of ordenes) {
-      s[o.estado]++
-      const n = peorNivel(o)
-      if (n === 'urgente') s.urgentes++
-      if (n === 'vencido') s.sintiempo++
+  // «Hoy» se recalcula al volver a la app (por si se quedó abierta de un día para otro)
+  const [hoy, setHoy] = useState(hoyIso)
+  useEffect(() => {
+    const h = () => document.visibilityState === 'visible' && setHoy(hoyIso())
+    document.addEventListener('visibilitychange', h)
+    const t = window.setTimeout(() => setHoy(hoyIso()), Math.max(1000, new Date(addDias(hoy, 1) + 'T00:00:05').getTime() - Date.now()))
+    return () => {
+      document.removeEventListener('visibilitychange', h)
+      window.clearTimeout(t)
     }
-    return s
-  }, [ordenes])
+  }, [hoy])
+
+  const reglas = useMemo(() => combinarReglas(reglasFilas), [reglasFilas])
+  const ctx = useMemo<ContextoPlazos>(() => ({ hoy, reglas, festivos: mapaFestivos(festivos) }), [hoy, reglas, festivos])
+
+  const stats = useMemo(() => contarEstados(ordenes, ctx), [ordenes, ctx])
 
   const visibles = useMemo(() => {
-    const t = normal(q.trim())
-    const list = ordenes.filter((o) => {
-      if (ocultarFin && o.estado === 'FINALIZADA') return false
-      if (filtro === 'urgentes' && peorNivel(o) !== 'urgente') return false
-      if (filtro === 'sintiempo' && peorNivel(o) !== 'vencido') return false
-      if ((ESTADOS as readonly string[]).includes(filtro) && o.estado !== filtro) return false
-      if (!t) return true
-      return normal(
-        [o.num_orden, o.empresa, o.objeto, o.situacion_general, o.tareas_pendientes, o.fecha_visita].join(' '),
-      ).includes(t)
-    })
+    const f = { q, filtro, ocultarFin }
+    const list = ordenes.filter((o) => pasaFiltros(o, f, ctx))
     const m = sort.dir === 'asc' ? 1 : -1
     return list.sort((a, b) => {
-      const va = valorOrden(a, sort.key)
-      const vb = valorOrden(b, sort.key)
+      const va = valorOrden(a, sort.key, ctx)
+      const vb = valorOrden(b, sort.key, ctx)
       if (va === vb) return (b.fecha_orden ?? '').localeCompare(a.fecha_orden ?? '')
       if (va === null) return 1
       if (vb === null) return -1
       if (typeof va === 'number' && typeof vb === 'number') return (va - vb) * m
       return String(va).localeCompare(String(vb), 'es', { numeric: true }) * m
     })
-  }, [ordenes, q, filtro, ocultarFin, sort])
+  }, [ordenes, q, filtro, ocultarFin, sort, ctx])
 
   function elegirFiltro(f: Filtro) {
     const nuevo = filtro === f ? 'todos' : f
@@ -276,8 +276,9 @@ function Panel({ email }: { email: string }) {
 
   async function eliminar(o: Orden) {
     setDeleting(null)
-    const { error } = await supabase.from('ordenes').delete().eq('id', o.id)
-    if (error) return showSnack({ msg: 'No se pudo eliminar: ' + error.message, err: true })
+    const b = await api()
+    const err = await b.eliminarOrden(o.id)
+    if (err) return showSnack({ msg: 'No se pudo eliminar: ' + err, err: true })
     setOrdenes((prev) => prev.filter((x) => x.id !== o.id))
     showSnack({
       msg: 'Orden eliminada',
@@ -286,9 +287,9 @@ function Panel({ email }: { email: string }) {
         fn: async () => {
           const { updated_at, ...rest } = o
           void updated_at
-          const { data, error } = await supabase.from('ordenes').insert(rest).select().single()
-          if (error) return showSnack({ msg: 'No se pudo restaurar: ' + error.message, err: true })
-          setOrdenes((prev) => [data as Orden, ...prev])
+          const { data, error } = await b.crearOrden(rest)
+          if (error !== null) return showSnack({ msg: 'No se pudo restaurar: ' + error, err: true })
+          setOrdenes((prev) => [data, ...prev])
           showSnack({ msg: 'Orden restaurada' })
         },
       },
@@ -304,248 +305,309 @@ function Panel({ email }: { email: string }) {
 
   const sortActual = SORTS_MOVIL.find((s) => s.sort.key === sort.key && s.sort.dir === sort.dir)?.id ?? ''
   const verTabla = vista === 'tabla'
+  const enCal = pantalla === 'calendario'
+  const salir = async () => (await api()).salir()
 
   if (pantalla === 'stats')
     return (
       <div className="app">
-        <Estadisticas ordenes={ordenes} onBack={cerrarStats} />
+        <Estadisticas ordenes={ordenes} onBack={volver} />
       </div>
     )
 
-  return (
-    <div className={`app${verTabla && !mobile ? ' wide' : ''}`}>
-      <header className="topbar">
-        <div className="brand">
-          <Logo size={mobile ? 42 : 48} />
-          <div className="brand-txt">
-            <span className="title-l">Inspecciones</span>
-            <span className="label-m muted">Seguimiento de órdenes</span>
-          </div>
-        </div>
-        {mobile ? (
-          <button className="icon-btn tonal stats-btn" onClick={abrirStats} aria-label="Estadísticas" title="Estadísticas">
-            <span className="icon">monitoring</span>
-          </button>
-        ) : (
-          <button className="btn tonal stats-btn" onClick={abrirStats}>
-            <span className="icon">monitoring</span>
-            Estadísticas
-          </button>
-        )}
-        <button className="icon-btn tonal" title={`Cerrar sesión (${email})`} aria-label="Cerrar sesión" onClick={() => supabase.auth.signOut()}>
-          <span className="icon">logout</span>
-        </button>
-      </header>
+  if (pantalla === 'ajustes')
+    return (
+      <PlazosCtx.Provider value={ctx}>
+        <Ajustes festivos={festivos} reglas={reglas} onBack={volver} onCambio={cargarConfig} avisar={(msg, err) => showSnack({ msg, err })} />
+        {snack && <SnackBar snack={snack} cerrar={() => setSnack(null)} />}
+      </PlazosCtx.Provider>
+    )
 
-      {mobile ? (
-        buscando ? (
-          <div className="search-m">
-            <label className="search">
-              <button
-                className="icon-btn"
-                aria-label="Cerrar búsqueda"
-                onClick={() => {
-                  setQ('')
-                  setBuscando(false)
-                }}
-              >
-                <span className="icon">arrow_back</span>
+  return (
+    <PlazosCtx.Provider value={ctx}>
+      <div className={`app${verTabla && !mobile && !enCal ? ' wide' : ''}${mobile ? ' con-nav' : ''}`}>
+        <header className="topbar">
+          <div className="brand">
+            <Logo size={mobile ? 42 : 48} />
+            <div className="brand-txt">
+              <span className="title-l">Inspecciones</span>
+              <span className="label-m muted">Seguimiento de órdenes</span>
+            </div>
+          </div>
+          {!mobile && (
+            <nav className="seg nav-seg" aria-label="Secciones">
+              <button className={!enCal ? 'on' : ''} aria-current={!enCal ? 'page' : undefined} onClick={() => irA({ pantalla: 'lista' })}>
+                <span className="icon">table_rows</span>
+                Órdenes
               </button>
+              <button className={enCal ? 'on' : ''} aria-current={enCal ? 'page' : undefined} onClick={() => irA({ pantalla: 'calendario', vista: 'plazos' })}>
+                <span className="icon">calendar_month</span>
+                Calendario
+              </button>
+            </nav>
+          )}
+          {!mobile && (
+            <button className="btn tonal stats-btn" onClick={() => irA({ pantalla: 'stats' })}>
+              <span className="icon">monitoring</span>
+              Estadísticas
+            </button>
+          )}
+          <button className={`icon-btn tonal${mobile ? ' stats-btn' : ''}`} onClick={() => irA({ pantalla: 'ajustes' })} aria-label="Ajustes" title="Ajustes">
+            <span className="icon">settings</span>
+          </button>
+          <button className="icon-btn tonal" title={`Cerrar sesión (${email})`} aria-label="Cerrar sesión" onClick={salir}>
+            <span className="icon">logout</span>
+          </button>
+        </header>
+
+        {mobile ? (
+          buscando ? (
+            <div className="search-m">
+              <label className="search">
+                <button
+                  className="icon-btn"
+                  aria-label="Cerrar búsqueda"
+                  onClick={() => {
+                    setQ('')
+                    setBuscando(false)
+                  }}
+                >
+                  <span className="icon">arrow_back</span>
+                </button>
+                <span className="sr-only">Buscar</span>
+                <input
+                  autoFocus
+                  value={q}
+                  onChange={(e) => setQ(e.target.value)}
+                  placeholder="Nº, empresa, objeto, tareas…"
+                  type="search"
+                  enterKeyHint="search"
+                />
+                {q && (
+                  <button className="icon-btn" onClick={() => setQ('')} aria-label="Borrar búsqueda">
+                    <span className="icon">close</span>
+                  </button>
+                )}
+              </label>
+            </div>
+          ) : (
+            <section className="hero-m">
+              <div>
+                <h1 className="display">{enCal ? 'Calendario' : 'Órdenes'}</h1>
+                <p className="body-m muted" style={{ margin: '2px 0 0' }}>
+                  {stats['EN CURSO'] + stats['PTE ENTREGA']} activas · {ordenes.length} en total
+                </p>
+              </div>
+              <div className="hero-actions">
+                <button className="icon-btn tonal" onClick={() => setBuscando(true)} aria-label="Buscar" title="Buscar">
+                  <span className="icon">search</span>
+                </button>
+                <button
+                  className={`icon-btn tonal fin-btn${ocultarFin ? ' on' : ''}`}
+                  onClick={toggleFin}
+                  aria-pressed={ocultarFin}
+                  aria-label={ocultarFin ? 'Mostrar finalizadas' : 'Ocultar finalizadas'}
+                  title={ocultarFin ? 'Finalizadas ocultas' : 'Mostrando finalizadas'}
+                >
+                  <span className="icon">{ocultarFin ? 'visibility_off' : 'visibility'}</span>
+                </button>
+                {!enCal && <SortMenu actual={sortActual} onPick={(id) => setSort(SORTS_MOVIL.find((s) => s.id === id)!.sort)} />}
+              </div>
+            </section>
+          )
+        ) : (
+          <section className="hero">
+            <div>
+              <h1 className="display">{enCal ? 'Calendario' : 'Órdenes'}</h1>
+              <p className="body-m muted" style={{ margin: '6px 0 0' }}>
+                {ordenes.length} en total · {stats['EN CURSO'] + stats['PTE ENTREGA']} activas
+              </p>
+            </div>
+            <label className="search">
+              <span className="icon">search</span>
               <span className="sr-only">Buscar</span>
-              <input
-                autoFocus
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                placeholder="Nº, empresa, objeto, tareas…"
-                type="search"
-                enterKeyHint="search"
-              />
+              <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar nº, empresa, objeto, tareas…" type="search" enterKeyHint="search" />
               {q && (
                 <button className="icon-btn" onClick={() => setQ('')} aria-label="Borrar búsqueda">
                   <span className="icon">close</span>
                 </button>
               )}
             </label>
-          </div>
-        ) : (
-          <section className="hero-m">
-            <div>
-              <h1 className="display">Órdenes</h1>
-              <p className="body-m muted" style={{ margin: '2px 0 0' }}>
-                {stats['EN CURSO'] + stats['PTE ENTREGA']} activas · {ordenes.length} en total
-              </p>
-            </div>
-            <div className="hero-actions">
-              <button className="icon-btn tonal" onClick={() => setBuscando(true)} aria-label="Buscar" title="Buscar">
-                <span className="icon">search</span>
-              </button>
-              <button
-                className={`icon-btn tonal fin-btn${ocultarFin ? ' on' : ''}`}
-                onClick={toggleFin}
-                aria-pressed={ocultarFin}
-                aria-label={ocultarFin ? 'Mostrar finalizadas' : 'Ocultar finalizadas'}
-                title={ocultarFin ? 'Finalizadas ocultas' : 'Mostrando finalizadas'}
-              >
-                <span className="icon">{ocultarFin ? 'visibility_off' : 'visibility'}</span>
-              </button>
-              <SortMenu actual={sortActual} onPick={(id) => setSort(SORTS_MOVIL.find((s) => s.id === id)!.sort)} />
-            </div>
           </section>
-        )
-      ) : (
-        <section className="hero">
-          <div>
-            <h1 className="display">Órdenes</h1>
-            <p className="body-m muted" style={{ margin: '6px 0 0' }}>
-              {ordenes.length} en total · {stats['EN CURSO'] + stats['PTE ENTREGA']} activas
-            </p>
-          </div>
-          <label className="search">
-            <span className="icon">search</span>
-            <span className="sr-only">Buscar</span>
-            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar nº, empresa, objeto, tareas…" type="search" enterKeyHint="search" />
-            {q && (
-              <button className="icon-btn" onClick={() => setQ('')} aria-label="Borrar búsqueda">
-                <span className="icon">close</span>
-              </button>
-            )}
-          </label>
-        </section>
-      )}
+        )}
 
-      <div className="stats">
-        {statCards.map((s) => (
-          <button key={s.k} className={`stat ${s.cls ?? ''}${filtro === s.k ? ' active' : ''}`} onClick={() => elegirFiltro(s.k)} aria-pressed={filtro === s.k}>
-            <div className="row">
-              <span className="n">{s.n}</span>
-              <span className="icon fill">{s.icon}</span>
-            </div>
-            <span className="label-l">{s.label}</span>
-          </button>
-        ))}
-      </div>
-
-      {!mobile && (
-        <div className="toolbar">
-          <label className="switch-row">
-            <span className="label-l">Ocultar finalizadas</span>
-            <span className="switch">
-              <input type="checkbox" role="switch" checked={ocultarFin} onChange={toggleFin} />
-              <span className="track">
-                <span className="thumb">
-                  <span className="icon">{ocultarFin ? 'check' : 'close'}</span>
-                </span>
-              </span>
-            </span>
-          </label>
-
-          <div className="toolbar-end">
-            {!verTabla && <SortMenu actual={sortActual} onPick={(id) => setSort(SORTS_MOVIL.find((s) => s.id === id)!.sort)} conTexto />}
-            {verTabla && <ColumnasMenu ocultas={ocultas} setOcultas={setOcultas} />}
-            <button className="icon-btn" title="Exportar a Excel (CSV)" aria-label="Exportar a Excel (CSV)" onClick={() => exportarCsv(visibles)}>
-              <span className="icon">download</span>
-            </button>
-            <div className="seg mini" role="radiogroup" aria-label="Vista">
-              <button role="radio" aria-checked={verTabla} className={verTabla ? 'on' : ''} onClick={() => setVista('tabla')} title="Tabla">
-                <span className="icon">table_rows</span>
-                <span className="sr-only">Tabla</span>
-              </button>
-              <button role="radio" aria-checked={!verTabla} className={!verTabla ? 'on' : ''} onClick={() => setVista('tarjetas')} title="Tarjetas">
-                <span className="icon">grid_view</span>
-                <span className="sr-only">Tarjetas</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {!loading && visibles.length > 0 && (
-        <p className="count label-l muted">
-          {visibles.length} {visibles.length === 1 ? 'orden' : 'órdenes'}
-          {filtro !== 'todos' && ` · ${label(filtro === 'urgentes' ? 'Menos de 30 días' : filtro === 'sintiempo' ? 'Sin tiempo' : filtro)}`}
-          {ocultarFin && ' · sin finalizadas'}
-          {q && ` · «${q}»`}
-        </p>
-      )}
-
-      {loading ? (
-        <div className="loader">
-          <span />
-        </div>
-      ) : visibles.length === 0 ? (
-        <div className="empty">
-          <div className="blob">
-            <span className="icon">{ordenes.length ? 'search_off' : 'inventory_2'}</span>
-          </div>
-          <h2 className="headline" style={{ color: 'var(--on-surface)' }}>
-            {ordenes.length ? 'No hay resultados' : 'Aún no hay órdenes'}
-          </h2>
-          <p className="body-m">{ordenes.length ? 'Prueba con otra búsqueda o cambia el filtro.' : 'Pulsa «Nueva orden» para añadir la primera.'}</p>
-          {ordenes.length > 0 && (
+        <div className="stats">
+          {statCards.map((s) => (
             <button
-              className="btn tonal"
-              onClick={() => {
-                setQ('')
-                setFiltro('todos')
-                setOcultarFin(false)
-              }}
+              key={s.k}
+              className={`stat ${s.cls ?? ''}${filtro === s.k ? ' active' : ''}`}
+              onClick={() => elegirFiltro(s.k)}
+              aria-pressed={filtro === s.k}
             >
-              Ver todas
+              <div className="row">
+                <span className="n">{s.n}</span>
+                <span className="icon fill">{s.icon}</span>
+              </div>
+              <span className="label-l">{s.label}</span>
             </button>
-          )}
-        </div>
-      ) : mobile ? (
-        <ListaMovil ordenes={visibles} onOpen={setEditing} />
-      ) : verTabla ? (
-        <TablaOrdenes ordenes={visibles} sort={sort} setSort={setSort} ocultas={ocultas} onOpen={setEditing} />
-      ) : (
-        <div className="grid">
-          {visibles.map((o, i) => (
-            <OrdenCard key={o.id} orden={o} index={i} onOpen={() => setEditing(o)} />
           ))}
         </div>
-      )}
 
-      <button className="fab" onClick={() => setEditing('new')} aria-label="Nueva orden">
-        <span className="icon">add</span>
-        <span className="fab-label">Nueva orden</span>
-      </button>
+        {!mobile && (
+          <div className="toolbar">
+            <label className="switch-row">
+              <span className="label-l">Ocultar finalizadas</span>
+              <span className="switch">
+                <input type="checkbox" role="switch" checked={ocultarFin} onChange={toggleFin} />
+                <span className="track">
+                  <span className="thumb">
+                    <span className="icon">{ocultarFin ? 'check' : 'close'}</span>
+                  </span>
+                </span>
+              </span>
+            </label>
 
-      {editing && (
-        <OrdenForm
-          key={editing === 'new' ? 'new' : editing.id}
-          orden={editing === 'new' ? null : editing}
-          onClose={() => setEditing(null)}
-          onSaved={guardada}
-          onDelete={(o) => {
-            setEditing(null)
-            setDeleting(o)
+            {!enCal && (
+              <div className="toolbar-end">
+                {!verTabla && <SortMenu actual={sortActual} onPick={(id) => setSort(SORTS_MOVIL.find((s) => s.id === id)!.sort)} conTexto />}
+                {verTabla && <ColumnasMenu ocultas={ocultas} setOcultas={setOcultas} />}
+                <button className="icon-btn" title="Exportar a Excel (CSV)" aria-label="Exportar a Excel (CSV)" onClick={() => exportarCsv(visibles, ctx)}>
+                  <span className="icon">download</span>
+                </button>
+                <div className="seg mini" role="radiogroup" aria-label="Vista">
+                  <button role="radio" aria-checked={verTabla} className={verTabla ? 'on' : ''} onClick={() => setVista('tabla')} title="Tabla">
+                    <span className="icon">table_rows</span>
+                    <span className="sr-only">Tabla</span>
+                  </button>
+                  <button role="radio" aria-checked={!verTabla} className={!verTabla ? 'on' : ''} onClick={() => setVista('tarjetas')} title="Tarjetas">
+                    <span className="icon">grid_view</span>
+                    <span className="sr-only">Tarjetas</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {!enCal && !loading && visibles.length > 0 && (
+          <p className="count label-l muted">
+            {visibles.length} {visibles.length === 1 ? 'orden' : 'órdenes'}
+            {filtro !== 'todos' && ` · ${nombreFiltro(filtro)}`}
+            {ocultarFin && ' · sin finalizadas'}
+            {q && ` · «${q}»`}
+          </p>
+        )}
+
+        {loading ? (
+          <div className="loader">
+            <span />
+          </div>
+        ) : enCal ? (
+          <Calendario ordenes={visibles} todas={ordenes} ruta={ruta} onOpen={setEditing} />
+        ) : visibles.length === 0 ? (
+          <div className="empty">
+            <div className="blob">
+              <span className="icon">{ordenes.length ? 'search_off' : 'inventory_2'}</span>
+            </div>
+            <h2 className="headline" style={{ color: 'var(--on-surface)' }}>
+              {ordenes.length ? 'No hay resultados' : 'Aún no hay órdenes'}
+            </h2>
+            <p className="body-m">{ordenes.length ? 'Prueba con otra búsqueda o cambia el filtro.' : 'Pulsa «Nueva orden» para añadir la primera.'}</p>
+            {ordenes.length > 0 && (
+              <button
+                className="btn tonal"
+                onClick={() => {
+                  setQ('')
+                  setFiltro('todos')
+                  setOcultarFin(false)
+                }}
+              >
+                Ver todas
+              </button>
+            )}
+          </div>
+        ) : mobile ? (
+          <ListaMovil ordenes={visibles} onOpen={setEditing} />
+        ) : verTabla ? (
+          <TablaOrdenes ordenes={visibles} sort={sort} setSort={setSort} ocultas={ocultas} onOpen={setEditing} />
+        ) : (
+          <div className="grid">
+            {visibles.map((o, i) => (
+              <OrdenCard key={o.id} orden={o} index={i} onOpen={() => setEditing(o)} />
+            ))}
+          </div>
+        )}
+
+        {!enCal && (
+          <button className="fab" onClick={() => setEditing('new')} aria-label="Nueva orden">
+            <span className="icon">add</span>
+            <span className="fab-label">Nueva orden</span>
+          </button>
+        )}
+
+        {editing && (
+          <OrdenForm
+            key={editing === 'new' ? 'new' : editing.id}
+            orden={editing === 'new' ? null : editing}
+            onClose={() => setEditing(null)}
+            onSaved={guardada}
+            onDelete={(o) => {
+              setEditing(null)
+              setDeleting(o)
+            }}
+            onError={(msg) => showSnack({ msg, err: true })}
+          />
+        )}
+
+        {deleting && <ConfirmDelete orden={deleting} onCancel={() => setDeleting(null)} onConfirm={() => eliminar(deleting)} />}
+
+        {snack && <SnackBar snack={snack} cerrar={() => setSnack(null)} />}
+
+        {mobile && (
+          <nav className="nav-bar" aria-label="Secciones">
+            <button className={!enCal ? 'on' : ''} aria-current={!enCal ? 'page' : undefined} onClick={() => irA({ pantalla: 'lista' })}>
+              <span className="nav-ic">
+                <span className={`icon${!enCal ? ' fill' : ''}`}>table_rows</span>
+              </span>
+              Órdenes
+            </button>
+            <button className={enCal ? 'on' : ''} aria-current={enCal ? 'page' : undefined} onClick={() => irA({ pantalla: 'calendario', vista: 'plazos' })}>
+              <span className="nav-ic">
+                <span className={`icon${enCal ? ' fill' : ''}`}>calendar_month</span>
+              </span>
+              Calendario
+            </button>
+            <button onClick={() => irA({ pantalla: 'stats' })}>
+              <span className="nav-ic">
+                <span className="icon">monitoring</span>
+              </span>
+              Estadísticas
+            </button>
+          </nav>
+        )}
+      </div>
+    </PlazosCtx.Provider>
+  )
+}
+
+function SnackBar({ snack, cerrar }: { snack: Snack; cerrar: () => void }) {
+  return (
+    <div className={`snackbar${snack.err ? ' err' : ''}`} role="status">
+      <span>{snack.msg}</span>
+      {snack.action ? (
+        <button
+          className="btn text"
+          onClick={() => {
+            cerrar()
+            snack.action!.fn()
           }}
-          onError={(msg) => showSnack({ msg, err: true })}
-        />
-      )}
-
-      {deleting && <ConfirmDelete orden={deleting} onCancel={() => setDeleting(null)} onConfirm={() => eliminar(deleting)} />}
-
-      {snack && (
-        <div className={`snackbar${snack.err ? ' err' : ''}`} role="status">
-          <span>{snack.msg}</span>
-          {snack.action ? (
-            <button
-              className="btn text"
-              onClick={() => {
-                setSnack(null)
-                snack.action!.fn()
-              }}
-            >
-              {snack.action.label}
-            </button>
-          ) : (
-            <button className="icon-btn" onClick={() => setSnack(null)} aria-label="Cerrar aviso" style={{ color: 'inherit' }}>
-              <span className="icon">close</span>
-            </button>
-          )}
-        </div>
+        >
+          {snack.action.label}
+        </button>
+      ) : (
+        <button className="icon-btn" onClick={cerrar} aria-label="Cerrar aviso" style={{ color: 'inherit' }}>
+          <span className="icon">close</span>
+        </button>
       )}
     </div>
   )

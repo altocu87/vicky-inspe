@@ -1,4 +1,6 @@
+import type { Inhabil } from '../lib/habiles'
 import { fmt, type Plazo as P } from '../lib/ordenes'
+import { MarcaInhabil } from './plazos'
 
 function textoDias(dias: number) {
   if (dias < 0) return `Vencido hace ${-dias} d`
@@ -8,7 +10,21 @@ function textoDias(dias: number) {
 
 const ICONO = { ok: 'check_circle', medio: 'schedule', urgente: 'warning', vencido: 'error' } as const
 
-export function Plazo({ titulo, plazo, finalizada, vacio }: { titulo: string; plazo: P | null; finalizada?: boolean; vacio: string }) {
+export function Plazo({
+  titulo,
+  plazo,
+  finalizada,
+  vacio,
+  inhabil,
+  nota,
+}: {
+  titulo: string
+  plazo: P | null
+  finalizada?: boolean
+  vacio: string
+  inhabil?: Inhabil | null
+  nota?: string
+}) {
   if (!plazo) {
     return (
       <div className="plazo n-none">
@@ -26,7 +42,10 @@ export function Plazo({ titulo, plazo, finalizada, vacio }: { titulo: string; pl
       <span className={`icon${nivel !== 'none' ? ' fill' : ''}`}>{nivel === 'none' ? 'event_available' : ICONO[plazo.nivel]}</span>
       <div>
         <div className="ttl">{titulo}</div>
-        <div className="val">{fmt(plazo.fecha)}</div>
+        <div className="val">
+          {fmt(plazo.fecha)} <MarcaInhabil inhabil={inhabil ?? null} conTexto={!finalizada} />
+        </div>
+        {nota && <div className="nota">{nota}</div>}
       </div>
       {!finalizada && <span className="dias">{textoDias(plazo.dias)}</span>}
     </div>

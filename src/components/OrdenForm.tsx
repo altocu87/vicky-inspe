@@ -1,20 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
-import {
-  ESTADOS,
-  ESTADOS_DOCUM,
-  ESTADOS_VISITA,
-  LABELS,
-  ORDEN_VACIA,
-  SI_NO,
-  plazo9Meses,
-  plazoSiguiente,
-  type Orden,
-  type OrdenInput,
-  type SiNo,
-} from '../lib/ordenes'
-import { supabase } from '../lib/supabase'
+import { ESTADOS, ESTADOS_DOCUM, ESTADOS_VISITA, LABELS, ORDEN_VACIA, SI_NO, type Orden, type OrdenInput, type SiNo } from '../lib/ordenes'
+import { api } from '../data/api'
+import { usePlazosCtx } from '../hooks'
+import { NOMBRE_CAMPO } from '../lib/plazos/reglas'
+import { plazosDe } from '../lib/plazos/motor'
 import { ESTADO_ICONO } from './OrdenCard'
 import { Plazo } from './Plazo'
+import { BotonVerCalendario } from './plazos'
 
 type Props = {
   orden: Orden | null // null = nueva
@@ -48,14 +40,7 @@ function Seg<T extends string>({
         {options.map((o) => {
           const on = value === o
           return (
-            <button
-              key={o}
-              type="button"
-              role="radio"
-              aria-checked={on}
-              className={on ? 'on' : ''}
-              onClick={() => onChange(on && clearable ? null : o)}
-            >
+            <button key={o} type="button" role="radio" aria-checked={on} className={on ? 'on' : ''} onClick={() => onChange(on && clearable ? null : o)}>
               {on ? <span className="icon">check</span> : icons && <span className="icon">{icons[o]}</span>}
               {LABELS[o] ?? o}
             </button>
@@ -128,6 +113,7 @@ export function OrdenForm({ orden, onClose, onSaved, onDelete, onError }: Props)
   const [saving, setSaving] = useState(false)
   const [tried, setTried] = useState(false)
   const nueva = !orden
+  const ctx = usePlazosCtx()
 
   useEffect(() => {
     if (ref.current && !ref.current.open) ref.current.showModal()
@@ -178,17 +164,15 @@ export function OrdenForm({ orden, onClose, onSaved, onDelete, onError }: Props)
       doc_subida: f.doc_subida,
       claves: f.claves,
     }
-    const q = nueva
-      ? supabase.from('ordenes').insert(payload).select().single()
-      : supabase.from('ordenes').update(payload).eq('id', orden.id).select().single()
-    const { data, error } = await q
+    const b = await api()
+    const { data, error } = nueva ? await b.crearOrden(payload) : await b.actualizarOrden(orden.id, payload)
     setSaving(false)
-    if (error) {
-      onError('No se pudo guardar: ' + error.message)
+    if (error !== null) {
+      onError('No se pudo guardar: ' + error)
       return
     }
     ref.current?.close()
-    onSaved(data as Orden, nueva)
+    onSaved(data, nueva)
   }
 
   const fin = f.estado === 'FINALIZADA'
@@ -220,7 +204,15 @@ export function OrdenForm({ orden, onClose, onSaved, onDelete, onError }: Props)
               <h3 className="title-m">Datos de la orden</h3>
             </div>
             <div className="fields">
-              <Field id="num" label="Nº de orden *" value={f.num_orden} onChange={(v) => set('num_orden', v)} placeholder="2/0004814/24" error={errNum} autoFocus={nueva} />
+              <Field
+                id="num"
+                label="Nº de orden *"
+                value={f.num_orden}
+                onChange={(v) => set('num_orden', v)}
+                placeholder="2/0004814/24"
+                error={errNum}
+                autoFocus={nueva}
+              />
               <Field id="emp" label="Empresa *" value={f.empresa} onChange={(v) => set('empresa', v)} placeholder="Nombre de la empresa" error={errEmp} />
             </div>
             <Seg label="Estado" options={ESTADOS} value={f.estado} onChange={(v) => v && set('estado', v)} icons={ESTADO_ICONO} />
@@ -246,10 +238,36 @@ export function OrdenForm({ orden, onClose, onSaved, onDelete, onError }: Props)
                 />
               )}
             </div>
-            <div className="calc" aria-live="polite">
-              <Plazo titulo="Límite 9 meses (calculado)" plazo={plazo9Meses(f)} finalizada={fin} vacio="Indica la 1ª actuación" />
-              <Plazo titulo="Límite siguiente actuación (calculado)" plazo={plazoSiguiente(f)} finalizada={fin} vacio="Indica la última actuación" />
+          </section>
+
+          <section className="section agenda">
+            <div className="section-title">
+              <span className="icon">event_note</span>
+              <h3 className="title-m">Agenda de esta orden</h3>
+              {!nueva && <BotonVerCalendario orden={orden} />}
             </div>
+            <div className="calc" aria-live="polite">
+              {ctx.reglas
+                .filter((r) => r.activa)
+                .map((r) => {
+                  const p = plazosDe({ ...f, id: orden?.id }, ctx).find((x) => x.regla.id === r.id) ?? null
+                  const campo = 'campo' in r.partida ? NOMBRE_CAMPO[r.partida.campo] : r.partida.evento
+                  return (
+                    <Plazo
+                      key={r.id}
+                      titulo={`${r.nombre} (calculado)`}
+                      plazo={p}
+                      inhabil={p?.inhabil}
+                      finalizada={fin}
+                      vacio={`Indica la ${campo.toLowerCase()}`}
+                      nota={p?.recortado ? `Recortado para no pasar de «${ctx.reglas.find((x) => x.id === r.tope)?.nombre ?? ''}»` : undefined}
+                    />
+                  )
+                })}
+            </div>
+            <p className="body-m muted" style={{ margin: 0 }}>
+              Las visitas y tareas de esta orden aparecerán aquí cuando esté el calendario completo.
+            </p>
           </section>
 
           <section className="section">

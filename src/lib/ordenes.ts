@@ -1,4 +1,6 @@
 // Tipos y lógica de plazos migrada de las fórmulas del Excel real ("Hoja 1")
+import { hoyIso } from './fechas'
+import { contextoBase, peorNivelDe, plazoDe, proximoPlazo, type ContextoPlazos, type Nivel, type OrdenPlazos, type PlazoCalc } from './plazos/motor'
 
 export const ESTADOS = ['EN CURSO', 'PTE ENTREGA', 'FINALIZADA'] as const
 export const ESTADOS_DOCUM = ['AUN NADA', 'SOLICITADA', 'RECIBIDA', 'NO SE PIDE'] as const
@@ -70,41 +72,11 @@ export const LABELS: Record<string, string> = {
 }
 export const label = (v: string | null | undefined) => (v ? (LABELS[v] ?? v) : '—')
 
-// ---------- Fechas ----------
-function parse(d: string): Date {
-  const [y, m, day] = d.split('-').map(Number)
-  return new Date(y, m - 1, day)
-}
-function toIso(d: Date): string {
-  const p = (n: number) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`
-}
-/** Equivalente a EDATE de Excel: suma meses y ajusta al último día si el mes es más corto */
-export function edate(iso: string, months: number): string {
-  const d = parse(iso)
-  const target = new Date(d.getFullYear(), d.getMonth() + months, 1)
-  const last = new Date(target.getFullYear(), target.getMonth() + 1, 0).getDate()
-  target.setDate(Math.min(d.getDate(), last))
-  return toIso(target)
-}
-export function hoyIso(): string {
-  return toIso(new Date())
-}
-export function diasHasta(iso: string): number {
-  const ms = parse(iso).getTime() - parse(hoyIso()).getTime()
-  return Math.round(ms / 86_400_000)
-}
-export function fmt(iso: string | null): string {
-  if (!iso) return '—'
-  return parse(iso).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' })
-}
-export function fmtCorta(iso: string | null): string {
-  if (!iso) return '—'
-  return parse(iso).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: '2-digit' })
-}
+// ---------- Fechas (en lib/fechas.ts; se reexportan para no romper imports) ----------
+export { edate, hoyIso, diasHasta, fmt, fmtCorta } from './fechas'
 
-// ---------- Plazos (columnas calculadas del Excel) ----------
-export type Nivel = 'ok' | 'medio' | 'urgente' | 'vencido'
+// ---------- Plazos (calculados por el motor de reglas: lib/plazos) ----------
+export type { Nivel } from './plazos/motor'
 
 export interface Plazo {
   fecha: string
@@ -112,31 +84,28 @@ export interface Plazo {
   nivel: Nivel
 }
 
-function nivel(dias: number): Nivel {
-  if (dias < 0) return 'vencido'
-  if (dias <= 30) return 'urgente'
-  if (dias <= 90) return 'medio'
-  return 'ok'
-}
+const soloFecha = (p: PlazoCalc | null): Plazo | null => (p ? { fecha: p.fecha, dias: p.dias, nivel: p.nivel } : null)
 
 /** FECHA LIMITE 9 MESES = EDATE(1ª actuación; 9) */
-export function plazo9Meses(o: Pick<OrdenInput, 'fecha_primera_actuacion'>): Plazo | null {
-  if (!o.fecha_primera_actuacion) return null
-  const fecha = edate(o.fecha_primera_actuacion, 9)
-  const dias = diasHasta(fecha)
-  return { fecha, dias, nivel: nivel(dias) }
+export function plazo9Meses(o: Pick<OrdenInput, 'fecha_primera_actuacion'>, ctx: ContextoPlazos = contextoBase(hoyIso())): Plazo | null {
+  return soloFecha(plazoDe(comoOrden(o), 'lim9', ctx))
 }
 
 /** FECHA LIMITE ULTIMA ACTUACION = EDATE(última; 5), sin pasar del límite de 9 meses */
 export function plazoSiguiente(
   o: Pick<OrdenInput, 'fecha_primera_actuacion' | 'fecha_ultima_actuacion'>,
+  ctx: ContextoPlazos = contextoBase(hoyIso()),
 ): Plazo | null {
-  if (!o.fecha_ultima_actuacion) return null
-  let fecha = edate(o.fecha_ultima_actuacion, 5)
-  const lim = plazo9Meses(o)
-  if (lim && fecha > lim.fecha) fecha = lim.fecha
-  const dias = diasHasta(fecha)
-  return { fecha, dias, nivel: nivel(dias) }
+  return soloFecha(plazoDe(comoOrden(o), 'sig', ctx))
+}
+
+function comoOrden(o: Partial<OrdenInput>): OrdenPlazos {
+  return {
+    estado: o.estado ?? 'EN CURSO',
+    fecha_orden: o.fecha_orden ?? null,
+    fecha_primera_actuacion: o.fecha_primera_actuacion ?? null,
+    fecha_ultima_actuacion: o.fecha_ultima_actuacion ?? null,
+  }
 }
 
 /** Texto de días como en el Excel: "SIN TIEMPO" si ya pasó */
@@ -149,17 +118,14 @@ export function textoDias(dias: number): string {
 export const activa = (o: OrdenInput) => o.estado !== 'FINALIZADA'
 
 /** El aviso más urgente de una orden activa */
-export function peorNivel(o: OrdenInput): Nivel | null {
+export function peorNivel(o: OrdenInput & { id?: string }, ctx: ContextoPlazos = contextoBase(hoyIso())): Nivel | null {
   if (!activa(o)) return null
-  const orden: Nivel[] = ['vencido', 'urgente', 'medio', 'ok']
-  const niveles = [plazo9Meses(o)?.nivel, plazoSiguiente(o)?.nivel].filter(Boolean) as Nivel[]
-  return orden.find((n) => niveles.includes(n)) ?? null
+  return peorNivelDe(o, ctx)
 }
 
-export function diasMinimos(o: OrdenInput): number {
+export function diasMinimos(o: OrdenInput & { id?: string }, ctx: ContextoPlazos = contextoBase(hoyIso())): number {
   if (!activa(o)) return 2e9
-  const d = [plazo9Meses(o)?.dias, plazoSiguiente(o)?.dias].filter((x) => x !== undefined) as number[]
-  return d.length ? Math.min(...d) : 1e9
+  return proximoPlazo(o, ctx)?.dias ?? 1e9
 }
 
 /** Pendientes de subir (comparecencia, doc., claves) en órdenes activas */

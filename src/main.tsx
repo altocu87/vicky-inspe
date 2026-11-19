@@ -4,6 +4,7 @@ import './index.css'
 import './tabla.css'
 import './colores.css'
 import './estadisticas.css'
+import './calendario.css'
 import App from './App.tsx'
 
 createRoot(document.getElementById('root')!).render(
