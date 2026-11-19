@@ -10,7 +10,7 @@
 -- Función temporal (desaparece al cerrar la sesión). Devuelve una fila por visita,
 -- o una sola fila con `dudoso` relleno, o nada si no hay que convertir.
 create or replace function pg_temp.convertir_fecha_visita(texto text, estado_visita text, hoy date)
-returns table (fecha date, estado text, segun_secuencia boolean, dudoso text)
+returns table (fecha date, estado text, segun_secuencia boolean, dudoso text, numero int, total int)
 language plpgsql immutable set search_path = '' as $$
 declare
   t text := btrim(coalesce(texto, ''), E' \t\r\n');
@@ -25,16 +25,16 @@ begin
   for m in select regexp_matches(t, '(\d{2})/(\d{2})/(\d{4})', 'g') loop
     d := m[1]::int; mes := m[2]::int; anio := m[3]::int;
     if mes < 1 or mes > 12 or d < 1 or d > extract(day from (make_date(anio, mes, 1) + interval '1 month - 1 day'))::int then
-      return query select null::date, null::text, null::boolean, 'Fecha imposible: ' || m[1] || '/' || m[2] || '/' || m[3];
+      return query select null::date, null::text, null::boolean, 'Fecha imposible: ' || m[1] || '/' || m[2] || '/' || m[3], null::int, null::int;
       return;
     end if;
     fechas := fechas || make_date(anio, mes, d);
   end loop;
   if cardinality(fechas) = 0 then
-    return query select null::date, null::text, null::boolean, 'No hay ninguna fecha dd/mm/aaaa'; return;
+    return query select null::date, null::text, null::boolean, 'No hay ninguna fecha dd/mm/aaaa', null::int, null::int; return;
   end if;
   if regexp_replace(t, '\d{2}/\d{2}/\d{4}', '', 'g') !~ '^[[:space:],;.–yY-]*$' then
-    return query select null::date, null::text, null::boolean, 'Hay texto además de las fechas'; return;
+    return query select null::date, null::text, null::boolean, 'Hay texto además de las fechas', null::int, null::int; return;
   end if;
   select array_agg(x order by x) into unicas from (select distinct unnest(fechas) x) s;
   sec := case ev
@@ -47,24 +47,24 @@ begin
     else null end;
   if sec is not null and cardinality(sec) > 0 and cardinality(unicas) = cardinality(sec) then
     for i in 1 .. cardinality(unicas) loop
-      return query select unicas[i], sec[i], true, null::text;
+      return query select unicas[i], sec[i], true, null::text, i, cardinality(unicas);
     end loop;
     return;
   end if;
   if sec is not null and cardinality(sec) > 0 and cardinality(unicas) = cardinality(sec) + 1 and unicas[cardinality(unicas)] >= hoy then
     for i in 1 .. cardinality(unicas) loop
-      return query select unicas[i], case when i <= cardinality(sec) then sec[i] else 'pendiente' end, true, null::text;
+      return query select unicas[i], case when i <= cardinality(sec) then sec[i] else 'pendiente' end, true, null::text, i, cardinality(unicas);
     end loop;
     return;
   end if;
   for i in 1 .. cardinality(unicas) loop
-    return query select unicas[i], case when unicas[i] >= hoy then 'pendiente' else 'hecha' end, false, null::text;
+    return query select unicas[i], case when unicas[i] >= hoy then 'pendiente' else 'hecha' end, false, null::text, i, cardinality(unicas);
   end loop;
 end; $$;
 
--- Las visitas convertidas
+-- Las visitas convertidas («1ª visita», «2ª visita»… si la orden tiene varias fechas)
 insert into public.eventos (titulo, tipo, fecha, todo_el_dia, orden_id, estado, origen, clave_origen)
-select 'Visita (Excel)', 'visita', c.fecha, true, o.id, c.estado, 'excel', 'excel:' || o.id || ':' || c.fecha
+select case when c.total > 1 then c.numero || 'ª visita (Excel)' else 'Visita (Excel)' end, 'visita', c.fecha, true, o.id, c.estado, 'excel', 'excel:' || o.id || ':' || c.fecha
 from public.ordenes o
 cross join lateral pg_temp.convertir_fecha_visita(o.fecha_visita, o.estado_visita, (now() at time zone 'Europe/Madrid')::date) c
 where c.dudoso is null

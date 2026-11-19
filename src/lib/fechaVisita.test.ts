@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { claveExcel, convertirFechaVisita as c, simularConversion } from './fechaVisita'
+import { claveExcel, convertirFechaVisita as c, simularConversion, tituloVisitaExcel } from './fechaVisita'
 
 const HOY = '2026-11-19'
 
@@ -57,5 +57,6 @@ describe('conversión de fecha_visita (Excel)', () => {
     expect(r).toMatchObject({ conFechas: 1, visitas: 1, segunSecuencia: 1, porEstado: { hecha: 1 } })
     expect(r.dudosos.map((d) => d.num_orden)).toEqual(['3'])
     expect(claveExcel('a', '2025-04-14')).toBe('excel:a:2025-04-14')
+    expect([tituloVisitaExcel(1, 1), tituloVisitaExcel(1, 2), tituloVisitaExcel(2, 2)]).toEqual(['Visita (Excel)', '1ª visita (Excel)', '2ª visita (Excel)'])
   })
 })

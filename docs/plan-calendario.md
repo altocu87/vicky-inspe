@@ -1,7 +1,7 @@
 # Plan: calendario integrado con las órdenes
 
 > Documento vivo: sirve de memoria entre sesiones. Se actualiza al cerrar cada fase.
-> Estado: **Fase 1 TERMINADA (rama `calendario`) y Fase 2 TERMINADA (rama `calendario-fase2`). Nada subido a `main`. Ninguna migración aplicada en producción. La conversión de `fecha_visita` espera el visto bueno de la usuaria.**
+> Estado: **Fase 1 TERMINADA (rama `calendario`) y Fase 2 TERMINADA (rama `calendario-fase2`). Nada subido a `main`. Migraciones de las fases 1 y 2 APLICADAS en producción el 19-11-2026 (con su permiso). La conversión de `fecha_visita` espera que la usuaria decida los casos dudosos.**
 
 ## 0. Lo que hay hoy (comprobado el 19-11-2026)
 
@@ -130,8 +130,8 @@ supabase/functions/resumen-semanal/   Edge Function (reutiliza src/lib/plazos)
 - La «Próxima visita» y «Por programar» miran las visitas pendientes de hoy en adelante (las series de visitas no cuentan para la próxima visita).
 
 #### Pendiente / a tener en cuenta (fase 2)
-- Aplicar las DOS migraciones (fase 1 y fase 2, en ese orden) antes o junto con el despliegue. Sin la de la fase 2 la web funciona (plazos y festivos), pero avisa de que visitas y tareas no están activadas.
-- Conversión de `fecha_visita`: solo con su visto bueno, después de la migración (SQL Editor de Supabase). Luego, revisar a mano las 8 dudosas.
+- ~~Aplicar las DOS migraciones~~ **Hecho el 19-11-2026** con su permiso: probadas otra vez en una transacción deshecha con su versión final y aplicadas juntas en una sola transacción; registradas en `supabase_migrations.schema_migrations` (`20261119085251`, `20261119112716`). Comprobado: 457 órdenes, 26 festivos, 2 tipos de cita, 24 políticas, `anon` sin acceso.
+- Conversión de `fecha_visita`: la usuaria pide que, si una orden tiene varias fechas, se creen todas como «1ª visita», «2ª visita»… (hecho en `fechaVisita.ts` y en el SQL; probado en la base real en una transacción deshecha: 148 visitas, 6 órdenes con dos). Pendiente de que decida los 15 casos desglosados (todos de órdenes FINALIZADAS): 5 «FALLIDA» sin fecha (estado REALIZADA), «14/04/2025 FALLIDA», «9/05/2026 29/06/2026», «1º visita 19-11-24; 2º visita el 3-12-24», 3 «1º FALLIDA, REALIZADA» con una sola fecha, 3 «SIN VISITA» con fecha y 1 «REALIZADA» con dos fechas. Cuando decida, se ajusta la regla (en la app y en el SQL, con pruebas) y se ejecuta.
 - `@fullcalendar/core` 7.1.5 aparece en `node_modules` porque lo trae `@fullcalendar/react` 7 (no lo hemos instalado nosotros y no es la v6).
 
 ### Fase 3: alertas y resumen semanal por correo
@@ -151,7 +151,7 @@ supabase/functions/resumen-semanal/   Edge Function (reutiliza src/lib/plazos)
 | # | Hallazgo | Riesgo | Propuesta | Estado |
 |---|---|---|---|---|
 | S1 | Contraseña mínima de 6 caracteres, sin requisitos | Medio | Subir a 12+ con letras y números (Supabase → Auth → Providers → Email) | Pendiente de su visto bueno |
-| S2 | Las políticas RLS dejan a CUALQUIER usuario con sesión (hoy solo hay 1 y el registro está cerrado) | Bajo hoy, alto si se abre el registro o se crea otro usuario | Lista de usuarios autorizados (`usuarios_autorizados`) y políticas `using (es_autorizado())` en todas las tablas | Pendiente de su visto bueno (toca `ordenes`) |
+| S2 | Las políticas RLS dejan a CUALQUIER usuario con sesión (hoy solo hay 1 y el registro está cerrado) | Bajo hoy, alto si se abre el registro o se crea otro usuario | Lista de usuarios autorizados (`usuarios_autorizados`) y políticas `using (es_autorizado())` en todas las tablas | **No se aplica por ahora** (decisión de la usuaria, 19-11-2026): solo hay 1 usuario y no se pueden registrar más. Comprobado: 1 usuario en `auth.users`, `disable_signup = true`, anónimos desactivados. **Si algún día se crea otro usuario, aplicar S2 antes.** |
 | S3 | MFA (TOTP) activo en Supabase pero la app no lo usa | Medio (móvil en la calle) | Segundo factor con app de códigos al iniciar sesión | Proponer en la fase 4 |
 | S4 | La protección contra contraseñas filtradas está desactivada | Bajo | Activarla (puede requerir plan Pro) | Pendiente |
 | S5 | La web no tenía cabeceras de seguridad | Medio | `vercel.json` | **Hecho en la fase 1** |

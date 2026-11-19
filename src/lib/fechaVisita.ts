@@ -62,6 +62,9 @@ export function convertirFechaVisita(texto: string | null, estadoVisita: string 
   return { tipo: 'ok', visitas: unicas.map((fecha) => ({ fecha, estado: fecha >= hoy ? 'pendiente' : 'hecha' })), segunSecuencia: false }
 }
 
+/** Título de la visita convertida: «Visita (Excel)», o «1ª visita (Excel)», «2ª visita (Excel)»… si hay varias */
+export const tituloVisitaExcel = (numero: number, total: number) => (total > 1 ? `${numero}ª visita (Excel)` : 'Visita (Excel)')
+
 /** Clave única de una visita convertida (orden + fecha): así se puede repetir sin duplicar */
 export const claveExcel = (ordenId: string, fecha: string) => `excel:${ordenId}:${fecha}`
 
