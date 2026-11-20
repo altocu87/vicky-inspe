@@ -6,6 +6,9 @@ import './colores.css'
 import './estadisticas.css'
 import './calendario.css'
 import App from './App.tsx'
+import { iniciarTema } from './tema'
+
+iniciarTema()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

@@ -18,7 +18,7 @@ button.menu-item.on { background: var(--secondary-container); color: var(--on-se
 
 /* ============ Estadísticas ============ */
 :root { --bar-curso: #4f7bea; --bar-fin: #2e9461; }
-@media (prefers-color-scheme: dark) { :root { --bar-curso: #86a6ff; --bar-fin: #7fd6a2; } }
+:root[data-tema="oscuro"] { --bar-curso: #86a6ff; --bar-fin: #7fd6a2; }
 .s-fin { --c: var(--c-fin); --on-c: var(--on-c-fin); --s: var(--s-fin); }
 .stat.s-fin { background: var(--c); color: var(--on-c); }
 .stat.s-fin .n { color: var(--on-c); }
