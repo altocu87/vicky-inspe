@@ -14,7 +14,7 @@ Todo lo que se apunta en la web (órdenes, visitas y citas, tareas, historial, t
 | Pieza | Dónde | Qué hace |
 |---|---|---|
 | Buzón de la hoja | `google-sheets/respaldo.gs` (se pega en Apps Script) | Recibe los avisos, comprueba la contraseña y escribe en la pestaña que toca |
-| Avisos desde Supabase | `supabase/migrations/20261120120000_respaldo_google_sheets.sql` | Un disparador por tabla que manda cada cambio, y la copia completa de cada noche (`pg_net` y `pg_cron`) |
+| Avisos desde Supabase | `supabase/migrations/20261120125111_respaldo_google_sheets.sql` | Un disparador por tabla que manda cada cambio, y la copia completa de cada noche (`pg_net` y `pg_cron`) |
 | Dirección y contraseña | Supabase Vault (cifrado) | Hasta que se configuran, no se envía nada |
 
 Si Google falla o tarda, **la web no se entera ni se bloquea**: el envío se hace después de guardar y en segundo plano.
@@ -36,7 +36,7 @@ Si Google falla o tarda, **la web no se entera ni se bloquea**: el envío se hac
    Pulsa **Copiar**. **No la compartas**, porque lleva la contraseña del buzón.
 6. **Pégala en Supabase.** Ve a [supabase.com](https://supabase.com), abre el proyecto **vicky-inspe** y entra en **SQL Editor**. Pega la línea y pulsa **Run**. Debe responder «Respaldo configurado. Enviadas 7 tablas a la hoja.». En unos segundos se llenan las pestañas.
 
-> El paso 6 necesita que antes se haya aplicado la migración `20261120120000_respaldo_google_sheets.sql` en Supabase.
+> La migración `20261120125111_respaldo_google_sheets.sql` ya está aplicada en Supabase (20-11-2026).
 
 ## Comprobar que funciona
 
