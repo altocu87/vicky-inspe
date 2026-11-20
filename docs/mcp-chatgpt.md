@@ -1,6 +1,6 @@
 # ChatGPT conectado a «Inspecciones» (servidor MCP)
 
-> Guía para la usuaria y memoria técnica. Rama `mcp-chatgpt`. Estado: **programado y probado; NADA activado en producción todavía** (ver «Pasos pendientes»).
+> Guía para la usuaria y memoria técnica. Rama `mcp-chatgpt`. Estado: **activado en producción el 20-11-2026** (web, migración, OAuth Server y función `mcp`). Falta conectarlo desde ChatGPT (hace falta un plan que lo permita: ver abajo).
 
 ## Qué es, en sencillo
 
@@ -40,7 +40,7 @@ Ejemplos: «¿Qué tengo el domingo?», «Resumen de la semana», «¿Qué plazo
 
 ## Conectarlo en ChatGPT (cuando esté activado)
 
-Hace falta un plan de pago de ChatGPT. Según la ayuda de OpenAI (noviembre de 2026), en **Business/Enterprise/Edu** se pueden usar herramientas que leen y que escriben. En **Plus/Pro** se hace con el «modo desarrollador» y puede que solo se permitan las de **leer**: si es tu caso, consultar e informes funcionarán y los cambios los harás en la app. Los menús de ChatGPT cambian a menudo: si algo no está donde se dice, busca «Aplicaciones», «Conectores» o «Modo desarrollador» en los Ajustes.
+**El plan Go no sirve**: no permite conectar servidores propios (el «modo desarrollador» empieza en Plus). Según la ayuda de OpenAI (noviembre de 2026), en **Business/Enterprise/Edu** se pueden usar herramientas que leen y que escriben. En **Plus/Pro** se hace con el «modo desarrollador» y puede que solo se permitan las de **leer**: si es tu caso, consultar e informes funcionarán y los cambios los harás en la app. Los menús de ChatGPT cambian a menudo: si algo no está donde se dice, busca «Aplicaciones», «Conectores» o «Modo desarrollador» en los Ajustes.
 
 **Desde el ordenador (chatgpt.com), una sola vez:**
 1. Ajustes → **Aplicaciones** (o «Aplicaciones y conectores») → **Avanzado** → activa **Modo desarrollador** (en Plus/Pro).
@@ -94,7 +94,7 @@ npm run build:mcp     # genera supabase/functions/mcp/index.js (no se sube al re
 
 Despliegue (solo con permiso): `npm run build:mcp` y después `supabase functions deploy mcp --no-verify-jwt` (o la Management API), con `verify_jwt = false` (el propio servidor comprueba el token; la pasarela, si no, rechazaría la petición de descubrimiento de OAuth, que va sin token).
 
-## Pasos pendientes (necesitan el permiso de la usuaria)
+## Pasos (1-4 HECHOS el 20-11-2026 con su permiso)
 
 1. **Subir la rama a `main`** (Vercel publica la pantalla de permiso `/oauth/consent` y la sección «Asistentes conectados»). No cambia nada de lo que ya hay: mientras el paso 3 no esté hecho, la sección dice «aún no está activada».
 2. **Aplicar la migración** `20261120090000_mcp_chatgpt.sql` (probada en la base real dentro de una transacción deshecha: ver el plan).

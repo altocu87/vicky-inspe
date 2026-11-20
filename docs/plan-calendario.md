@@ -1,7 +1,7 @@
 # Plan: calendario integrado con las órdenes
 
 > Documento vivo: sirve de memoria entre sesiones. Se actualiza al cerrar cada fase.
-> Estado: **Servidor MCP para ChatGPT PROGRAMADO Y PROBADO en la rama `mcp-chatgpt` (20-11-2026); nada activado en producción (ver 3 ter).** **Fases 1 y 2 TERMINADAS y PUBLICADAS (subidas a `main` el 19-11-2026 con su permiso; despliegue de Vercel correcto). Migraciones de las fases 1 y 2 APLICADAS en producción el 19-11-2026 (con su permiso). Conversión de `fecha_visita` ejecutada el 19-11-2026 (ver 3 bis).**
+> Estado: **Servidor MCP para ChatGPT ACTIVADO en producción el 20-11-2026 (con su permiso): en `main`, migración aplicada, OAuth Server activado y función `mcp` publicada. Falta conectarlo desde ChatGPT: su plan (Go) no permite servidores propios (ver 3 ter).** **Fases 1 y 2 TERMINADAS y PUBLICADAS (subidas a `main` el 19-11-2026 con su permiso; despliegue de Vercel correcto). Migraciones de las fases 1 y 2 APLICADAS en producción el 19-11-2026 (con su permiso). Conversión de `fecha_visita` ejecutada el 19-11-2026 (ver 3 bis).**
 
 ## 0. Lo que hay hoy (comprobado el 19-11-2026)
 
@@ -180,7 +180,13 @@ Guía completa (conectar, quitar el acceso, cómo está hecho): **`docs/mcp-chat
 - Probado con el **MCP Inspector oficial** (2.16.0, modo CLI) contra el servidor con datos de demo y el proceso en UTC: 17 herramientas con sus anotaciones y el informe semanal correcto. Probado el paquete en **Deno** 2.9 (el motor de Supabase): sin token responde 401 con `WWW-Authenticate` y la metadata OAuth apunta a `…supabase.co/auth/v1`.
 - Capturas (Playwright, demo): pantalla de permiso en ordenador y móvil (375/412), claro y oscuro, y Ajustes → Asistentes conectados: sin desplazamiento horizontal ni errores de JS.
 
-**Pendiente (con su permiso, en este orden)**: subir a `main` (publica la pantalla de permiso) → aplicar la migración → activar OAuth Server en Supabase (registro dinámico y ruta `/oauth/consent`) → publicar la función `mcp` → conectar desde ChatGPT y probar con una orden de prueba → (opcional) fijar `MCP_CLIENTES_PERMITIDOS`.
+**Activado (20-11-2026, con su permiso para los pasos 1-4)**
+1. `main` = `4051aae` (se unió antes el commit nuevo de `main` «Selector de tema»; conflictos en `main.tsx` y `Ajustes.tsx` resueltos conservando las dos cosas; 178 pruebas, lint y build en verde; capturas repetidas).
+2. Migración `20261120090000_mcp_chatgpt.sql` aplicada en una sola transacción y registrada en `supabase_migrations.schema_migrations`. Comprobado: 37 políticas (12 *restrictive*), columna `origen`, 457 órdenes.
+3. Auth (Management API): `oauth_server_enabled = true`, `oauth_server_allow_dynamic_registration = true`, `oauth_server_authorization_path = /oauth/consent` (Site URL ya era `https://vicky-inspe.vercel.app`; registro de usuarios sigue cerrado).
+4. Función `mcp` publicada (versión 1, ACTIVE, `verify_jwt = false`), el mismo paquete probado en Deno. Desde esta sesión no se puede llamar a `…supabase.co` (la red solo deja la Management API), así que la prueba en vivo queda para ella o para otra sesión con acceso.
+
+**Pendiente**: su plan de ChatGPT es **Go**, que según la información disponible (20-11-2026) **no** permite conectar servidores MCP propios (el modo desarrollador empieza en Plus; escribir puede requerir Business). Opciones: subir a Plus (o superior) y conectarlo con `docs/mcp-chatgpt.md`, o dejarlo así (sin uso no hace nada) o desactivarlo (OAuth Server off). Después: probar con una orden de prueba y fijar `MCP_CLIENTES_PERMITIDOS`.
 
 ## 4. Seguridad: hallazgos de la auditoría (19-11-2026) y propuestas
 
@@ -232,4 +238,4 @@ Guía completa (conectar, quitar el acceso, cómo está hecho): **`docs/mcp-chat
 - 19-11-2026: visto bueno. **Fase 1 terminada** (rama `calendario`). Auditoría de seguridad (apartado 4). Se lanza la fase 2 en otra sesión.
 - 19-11-2026: migraciones de las fases 1 y 2 aplicadas en producción (con permiso). S2 descartada por ahora (1 solo usuario, registro cerrado). Conversión ajustada con sus indicaciones (1ª/2ª visita, detalles) y ventana de resultado con detalles. Fases 1 y 2 subidas a `main` (commit f129923) y desplegadas en Vercel: READY en `vicky-inspe.vercel.app`.
 - 19-11-2026: **Fase 2 terminada** (rama `calendario-fase2`). Migración probada (no aplicada), simulación de la conversión hecha (pendiente de visto bueno), auditoría de la fase 2 (apartado 4). Encargo de la fase 3 en `docs/prompt-fase3.md`.
-- 20-11-2026: **Servidor MCP para ChatGPT** (rama `mcp-chatgpt`): aviso de privacidad (su organismo lo permite), investigación y arquitectura aprobadas, programado, probado (178 pruebas, Inspector, Deno, migración en transacción deshecha) y auditado. Pendiente de su permiso: `main`, migración, OAuth Server, despliegue de la función y prueba real desde ChatGPT.
+- 20-11-2026: **Servidor MCP para ChatGPT** (rama `mcp-chatgpt`): aviso de privacidad (su organismo lo permite), investigación y arquitectura aprobadas, programado, probado (178 pruebas, Inspector, Deno, migración en transacción deshecha) y auditado. Con su permiso, el mismo día: subido a `main`, migración aplicada, OAuth Server activado y función `mcp` publicada. Su plan de ChatGPT (Go) no admite servidores propios: pendiente de que decida.
