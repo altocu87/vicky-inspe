@@ -1,7 +1,7 @@
 # Plan: calendario integrado con las órdenes
 
 > Documento vivo: sirve de memoria entre sesiones. Se actualiza al cerrar cada fase.
-> Estado: **Fases 1 y 2 TERMINADAS y PUBLICADAS (subidas a `main` el 19-11-2026 con su permiso; despliegue de Vercel correcto). Migraciones de las fases 1 y 2 APLICADAS en producción el 19-11-2026 (con su permiso). La conversión de `fecha_visita` espera que la usuaria decida los casos dudosos.**
+> Estado: **Servidor MCP para ChatGPT PROGRAMADO Y PROBADO en la rama `mcp-chatgpt` (20-11-2026); nada activado en producción (ver 3 ter).** **Fases 1 y 2 TERMINADAS y PUBLICADAS (subidas a `main` el 19-11-2026 con su permiso; despliegue de Vercel correcto). Migraciones de las fases 1 y 2 APLICADAS en producción el 19-11-2026 (con su permiso). Conversión de `fecha_visita` ejecutada el 19-11-2026 (ver 3 bis).**
 
 ## 0. Lo que hay hoy (comprobado el 19-11-2026)
 
@@ -154,7 +154,33 @@ supabase/functions/resumen-semanal/   Edge Function (reutiliza src/lib/plazos)
 - Migración probada en la base real en una transacción deshecha (2 veces): el historial apunta el cambio, solo lectura para `authenticated`, nada para `anon`, la función no la puede llamar nadie. **Aplicada en producción y publicada el 19-11-2026 (con su permiso).**
 - **Tutorial interactivo** (botón «?» arriba, en el móvil y en el ordenador): 14 pasos que señalan cada parte (totales, buscar, lista, programar visita, nueva orden, calendario, vistas, capas, Por programar, visitas, añadir, Ajustes). Esc para salir y flechas para avanzar. No toca datos. Las partes señaladas llevan `data-tour="…"` (`src/components/Tutorial.tsx`).
 - **Seguridad del inicio de sesión (S1, S3, S4, S6, S7)**: la usuaria decide dejarla como está por ahora (20-11-2026).
-- **Servidor MCP para ChatGPT**: prompt maestro en `docs/prompt-mcp-chatgpt.md` (incluye el aviso de privacidad: los datos saldrían hacia OpenAI).
+- **Servidor MCP para ChatGPT**: prompt maestro en `docs/prompt-mcp-chatgpt.md` (incluye el aviso de privacidad: los datos saldrían hacia OpenAI). Hecho: ver 3 ter.
+
+## 3 ter. Servidor MCP para ChatGPT (20-11-2026, rama `mcp-chatgpt`)
+Guía completa (conectar, quitar el acceso, cómo está hecho): **`docs/mcp-chatgpt.md`**.
+
+**Decisiones de la usuaria**
+- Su organismo le permite usar ChatGPT con estos datos (confirmado el 20-11-2026). Plan de ChatGPT: **pendiente de que lo diga** (en Plus/Pro puede que solo funcionen las herramientas de leer).
+- Arquitectura aprobada: función de Supabase + OAuth 2.1 de Supabase Auth con su usuario + las herramientas del encargo.
+- «Aceptar el permiso una vez» (sin reconectar al actualizar) y «privado, solo con usuario de Supabase». La interfaz, con el mismo estilo que la web.
+
+**Investigación (documentación actual, 20-11-2026)**
+- ChatGPT: servidor MCP remoto por HTTPS («streamable HTTP»), autenticación OAuth (registro dinámico de clientes o CIMD), redirección a `chatgpt.com`. Las herramientas sin `readOnlyHint` cuentan como de escritura y ChatGPT pide confirmación. Business/Enterprise/Edu: leer y escribir; Plus/Pro: modo desarrollador, y la ayuda actual sugiere que en Pro solo lectura (contradictorio entre fuentes).
+- Supabase: servidor OAuth 2.1 (beta, gratis), con registro dinámico, pantalla de permiso propia (`site_url` + `/oauth/consent`) y tokens JWT normales con `client_id` (RLS igual). Guía oficial «Deploy MCP servers» con `@modelcontextprotocol/server` 2.x y `@supabase/server` (`withOAuthProtectedResource` + `withSupabase`). El proyecto ya firma con ES256 (necesario). Sesiones sin caducidad (`sessions_timebox = 0`): por eso el permiso dura hasta que se quite.
+- Alojamiento elegido: **función de Supabase** (misma plataforma que la BD, guía oficial, sin secretos nuevos) frente a Vercel (la web es Vite sin funciones; habría que montar todo a mano y añadir variables).
+
+**Hecho**
+- `src/mcp`: 17 herramientas (9 de lectura, 8 de escritura, **ninguna de borrar ni de SQL**), esquemas zod estrictos, «hoy» en hora de España, respuestas cortas y sin notas/direcciones/teléfonos salvo `incluir_detalles`, recorte a 15 000 caracteres, errores sin detalles internos, registros sin datos personales, límite de 60 peticiones/min y 600/hora, cuerpo ≤ 64 KB.
+- Entrada (`src/mcp/http.ts` + `funcion.ts`): `withOAuthProtectedResource` → `withSupabase({ auth: 'user', issuer })` → `comprobarIdentidad` (exige `client_id` = token OAuth, no una sesión de la web; `getUser` en cada petición para que revocar corte al momento; lista opcional `MCP_CLIENTES_PERMITIDOS`). Nunca `service_role`.
+- Capa de datos compartida: `src/data/supabaseDatos.ts` (fábrica con el cliente de quien llama; la web la usa vía `supabaseBackend.ts`), tipos en `src/data/backend.ts`. Nuevos: `obtenerEvento`, `obtenerTarea` y los de OAuth (detalles, decidir, listar y revocar conexiones). El servidor solo ve `DatosMcp` (sin borrar ni ajustes).
+- Web: pantalla de permiso `/oauth/consent` (`Consentimiento.tsx`, mismo estilo que la de entrar; si ya se aceptó, vuelve sola a ChatGPT; solo deja volver a `chatgpt.com`), aviso en `Login`, sección **Ajustes → Asistentes conectados** (quitar acceso) y `rewrites` en `vercel.json`. CSP sin cambios.
+- Migración `20261120090000_mcp_chatgpt.sql`: `historial_ordenes.origen` («app»/«chatgpt», lo pone el disparador según `client_id`) y 12 políticas *restrictive*: con token de asistente no se borra en `ordenes`/`eventos`/`tareas` ni se escribe en `festivos`/`reglas_plazo`/`tipos_cita`. **Probada en la BD real en una transacción deshecha (ejecutada 2 veces)**: asistente borra 0 tareas/órdenes, alta de festivo rechazada (42501), cambia 0 festivos/tipos, lee bien; la web cambia y borra como antes; historial `alta:chatgpt, cambio:chatgpt, cambio:app`; `anon` sin acceso; 457 órdenes antes y después; comprobado después que no quedó nada (25 políticas, sin columna nueva). **NO aplicada.**
+- `supabase/config.toml`: `[auth.oauth_server]` activado con registro dinámico y `[functions.mcp] verify_jwt = false` (solo documenta; no se ha empujado).
+- Pruebas: **178** (antes 119): `src/mcp/mcp.test.ts` (53, datos inventados): entradas, campos desconocidos, lectura sin escrituras, escritura solo en la lista blanca, privacidad, hora de España con el proceso en UTC, protocolo MCP real (lista, llamada, errores), acceso (sin `client_id`, revocado, lista), límite y recorte; `oauth.test.ts`; pruebas de la migración. Lint (0 errores), build y `npm audit` (0) en verde.
+- Probado con el **MCP Inspector oficial** (2.16.0, modo CLI) contra el servidor con datos de demo y el proceso en UTC: 17 herramientas con sus anotaciones y el informe semanal correcto. Probado el paquete en **Deno** 2.9 (el motor de Supabase): sin token responde 401 con `WWW-Authenticate` y la metadata OAuth apunta a `…supabase.co/auth/v1`.
+- Capturas (Playwright, demo): pantalla de permiso en ordenador y móvil (375/412), claro y oscuro, y Ajustes → Asistentes conectados: sin desplazamiento horizontal ni errores de JS.
+
+**Pendiente (con su permiso, en este orden)**: subir a `main` (publica la pantalla de permiso) → aplicar la migración → activar OAuth Server en Supabase (registro dinámico y ruta `/oauth/consent`) → publicar la función `mcp` → conectar desde ChatGPT y probar con una orden de prueba → (opcional) fijar `MCP_CLIENTES_PERMITIDOS`.
 
 ## 4. Seguridad: hallazgos de la auditoría (19-11-2026) y propuestas
 
@@ -176,6 +202,26 @@ supabase/functions/resumen-semanal/   Edge Function (reutiliza src/lib/plazos)
 - **Dependencias**: `@fullcalendar/react` 7.1.5 (MIT), `rrule` 2.8.1 (BSD), `temporal-polyfill` 1.0.8 (MIT). `npm audit`: 0 vulnerabilidades.
 - **Sin cambios** en S1–S7: siguen pendientes de su visto bueno.
 
+### Auditoría del servidor MCP (20-11-2026)
+- **Acceso**: solo OAuth 2.1 de Supabase Auth con el usuario de la app; sin «modo abierto» ni enlaces secretos. Token comprobado (firma ES256 con JWKS, caducidad, emisor = este proyecto) y además: `role = authenticated`, `client_id` presente (una sesión de la web copiada no sirve) y sesión viva (`getUser`, así revocar corta al momento). Nunca `service_role` (el contexto lo ofrece, el código no lo usa: búsqueda hecha). RLS se aplica igual.
+- **Pantalla de permiso**: solo vuelve a `https://chatgpt.com` / `chat.openai.com` (prueba con dominios parecidos, `javascript:`, usuario:clave@…); otro programa se deniega sin redirigir. `authorization_id` validado.
+- **Herramientas**: sin borrar, sin SQL libre, sin tocar ajustes (también lo impide la BD con políticas *restrictive*). Esquemas estrictos; `editar_orden` con lista blanca; series y visitas ya marcadas no se mueven; `actualizar_orden` solo si ella lo dice.
+- **Datos que salen a OpenAI**: lo mínimo por defecto; textos libres, direcciones y teléfonos solo con `incluir_detalles` (el historial los oculta como «(oculto)»).
+- **Secretos**: ninguno nuevo; nada en el repositorio. El paquete `index.js` se genera y no se sube.
+- **Dependencias** nuevas (fijadas): `@modelcontextprotocol/server` 2.4.0, `@supabase/server` 1.9.2, `@supabase/middleware` 1.0.0, `zod` 4.6.7 y `esbuild` 0.28.2 (desarrollo). `npm audit`: 0. La web no las incluye (comprobado en el build).
+
+| # | Riesgo que queda | Nivel | Qué hacer |
+|---|---|---|---|
+| M1 | Lo consultado sale hacia OpenAI | Aceptado (organismo de acuerdo) | Pedir lo mínimo; activar «no usar para entrenar» si la cuenta lo permite |
+| M2 | Registro dinámico abierto: alguien podría crear su propio conector apuntando aquí e intentar que ella le dé permiso (phishing) | Bajo | Hace falta su contraseña y pulsar «Permitir» en su app (que muestra el nombre). Tras conectar, fijar `MCP_CLIENTES_PERMITIDOS` |
+| M3 | Si alguien entra en su cuenta de ChatGPT, podría usar la conexión (no caduca) | Medio | Doble factor en ChatGPT; quitar el acceso en Ajustes si pierde un dispositivo |
+| M4 | Instrucciones escondidas en textos de las órdenes (prompt injection) | Bajo | Escrituras con confirmación, sin borrar; las notas no salen por defecto |
+| M5 | Límite de peticiones por instancia (en memoria), no global | Bajo | Suficiente para 1 usuaria; Supabase limita además los tokens |
+| M6 | OAuth Server de Supabase en beta | Bajo | Revisar avisos de Supabase |
+| M7 | En Plus/Pro, ChatGPT puede permitir solo herramientas de leer | — | Confirmar su plan |
+| S2 | RLS deja a cualquier usuario con sesión | Bajo hoy (1 usuario) | Sigue igual: si se crea otro usuario, aplicar S2 antes |
+| S8 | (Encontrado de paso, ya existía) `set_fecha_cierre` usa `current_date` (UTC): entre las 00:00 y las 01:00/02:00 de España la fecha de cierre saldría del día anterior si la web no la manda | Bajo | El servidor MCP manda la fecha de España; revisar la web en otra sesión |
+
 ## 5. Cómo cierro cada fase
 `npm run lint`, pruebas y `npm run build` en verde. Capturas con Playwright en el ordenador, a 375 px y a 412 px, en claro y en oscuro, comprobando que no haya desplazamiento horizontal. Actualizo este documento y el README, te lo resumo y **te pregunto antes de subirlo a `main`**.
 
@@ -186,3 +232,4 @@ supabase/functions/resumen-semanal/   Edge Function (reutiliza src/lib/plazos)
 - 19-11-2026: visto bueno. **Fase 1 terminada** (rama `calendario`). Auditoría de seguridad (apartado 4). Se lanza la fase 2 en otra sesión.
 - 19-11-2026: migraciones de las fases 1 y 2 aplicadas en producción (con permiso). S2 descartada por ahora (1 solo usuario, registro cerrado). Conversión ajustada con sus indicaciones (1ª/2ª visita, detalles) y ventana de resultado con detalles. Fases 1 y 2 subidas a `main` (commit f129923) y desplegadas en Vercel: READY en `vicky-inspe.vercel.app`.
 - 19-11-2026: **Fase 2 terminada** (rama `calendario-fase2`). Migración probada (no aplicada), simulación de la conversión hecha (pendiente de visto bueno), auditoría de la fase 2 (apartado 4). Encargo de la fase 3 en `docs/prompt-fase3.md`.
+- 20-11-2026: **Servidor MCP para ChatGPT** (rama `mcp-chatgpt`): aviso de privacidad (su organismo lo permite), investigación y arquitectura aprobadas, programado, probado (178 pruebas, Inspector, Deno, migración en transacción deshecha) y auditado. Pendiente de su permiso: `main`, migración, OAuth Server, despliegue de la función y prueba real desde ChatGPT.

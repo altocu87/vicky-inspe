@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { api } from '../data/api'
 import { Logo } from './Logo'
 
-export function Login() {
+/** `aviso`: texto opcional encima del formulario (por ejemplo, al conectar ChatGPT) */
+export function Login({ aviso }: { aviso?: string } = {}) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -28,6 +29,12 @@ export function Login() {
             Seguimiento de órdenes, visitas y plazos
           </p>
         </div>
+        {aviso && (
+          <p className="aviso-login" role="note">
+            <span className="icon">smart_toy</span>
+            <span className="body-m">{aviso}</span>
+          </p>
+        )}
         <div className="field">
           <label htmlFor="email">Correo electrónico</label>
           <input id="email" type="email" autoComplete="username" required value={email} onChange={(e) => setEmail(e.target.value)} />

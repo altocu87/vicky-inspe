@@ -1,6 +1,6 @@
-// Pantalla #ajustes: festivos (para días hábiles) y reglas de plazo.
-import { useEffect, useRef, useState } from 'react'
-import { api } from '../data/api'
+// Pantalla #ajustes: festivos (para días hábiles), tipos de cita, reglas de plazo y asistentes conectados (ChatGPT).
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { api, type Conexion } from '../data/api'
 import { esIso, fmt, hoyIso, nombreDia } from '../lib/fechas'
 import type { Ambito, Festivo } from '../lib/habiles'
 import { ESTADOS, LABELS } from '../lib/ordenes'
@@ -95,6 +95,8 @@ export function Ajustes({
         </ul>
         <NuevaRegla reglas={reglas} onCambio={onCambio} avisar={avisar} />
       </section>
+
+      <Conexiones avisar={avisar} />
     </div>
   )
 }
@@ -480,6 +482,68 @@ function TiposCita({ avisar }: { avisar: (m: string, e?: boolean) => void }) {
           Añadir
         </button>
       </form>
+    </section>
+  )
+}
+
+/** Asistentes (ChatGPT) con permiso para entrar con tu usuario. Quitar el acceso lo corta al momento. */
+function Conexiones({ avisar }: { avisar: (m: string, e?: boolean) => void }) {
+  const [lista, setLista] = useState<Conexion[] | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [quitando, setQuitando] = useState<string | null>(null)
+
+  const cargar = useCallback(async () => {
+    const r = await (await api()).listarConexiones()
+    if (r.error !== null) {
+      setError(r.error)
+      setLista([])
+    } else {
+      setError(null)
+      setLista(r.data)
+    }
+  }, [])
+  useEffect(() => {
+    cargar()
+  }, [cargar])
+
+  async function quitar(c: Conexion) {
+    if (!window.confirm(`¿Quitar el acceso de «${c.nombre}»? Dejará de poder consultar o cambiar tus datos al momento. Para volver a usarlo, tendrás que conectarlo otra vez desde ChatGPT.`)) return
+    setQuitando(c.clientId)
+    const err = await (await api()).revocarConexion(c.clientId)
+    setQuitando(null)
+    if (err) return avisar(err, true)
+    avisar('Acceso quitado')
+    cargar()
+  }
+
+  return (
+    <section className="section aj-sec" aria-labelledby="aj-conex">
+      <div className="section-title">
+        <span className="icon">smart_toy</span>
+        <h2 id="aj-conex" className="title-m">
+          Asistentes conectados
+        </h2>
+      </div>
+      <p className="body-m muted">
+        Programas a los que has dado permiso para entrar con tu usuario (por ejemplo, ChatGPT). Pueden consultar y cambiar órdenes, visitas y tareas, pero
+        nunca borrar ni tocar los Ajustes. Si pierdes el móvil o el ordenador, quita el acceso aquí.
+      </p>
+      <ul className="aj-lista">
+        {lista === null && <li className="body-m muted">Cargando…</li>}
+        {lista && lista.length === 0 && <li className="body-m muted">{error ? 'La conexión con asistentes aún no está activada.' : 'Ninguno conectado.'}</li>}
+        {lista?.map((c) => (
+          <li key={c.clientId} className="aj-fila">
+            <span className="aj-txt">
+              <strong>{c.nombre}</strong>
+              <span className="muted"> · desde el {c.desde ? fmt(c.desde.slice(0, 10)) : '—'}</span>
+            </span>
+            <button className="btn outlined" disabled={quitando === c.clientId} onClick={() => quitar(c)}>
+              <span className="icon">link_off</span>
+              Quitar acceso
+            </button>
+          </li>
+        ))}
+      </ul>
     </section>
   )
 }

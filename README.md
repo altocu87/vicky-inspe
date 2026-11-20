@@ -24,8 +24,12 @@ Las fechas límite salen de **reglas de plazo** (`src/lib/plazos/reglas.ts`), qu
 - Tabla: columna **Próxima visita** (con semáforo) y botón **Programar visita**; el CSV la incluye.
 - La conversión del texto heredado `fecha_visita` está en `supabase/conversiones/` y **solo se ejecuta a mano y con permiso**.
 - Desde cada orden (tabla, tarjetas o lista del móvil), el icono **Ver en el calendario** abre `#calendario?orden=<id>`.
-- **#ajustes**: festivos de Albacete (nacionales, de Castilla-La Mancha y locales) y reglas de plazo.
+- **#ajustes**: festivos de Albacete (nacionales, de Castilla-La Mancha y locales), tipos de cita, reglas de plazo y **Asistentes conectados** (quitar el acceso a ChatGPT).
 - Plan completo y estado de cada fase: [`docs/plan-calendario.md`](docs/plan-calendario.md).
+
+## ChatGPT (servidor MCP)
+
+Desde ChatGPT se puede consultar y apuntar cosas hablando normal («¿qué vence esta semana?», «apunta visita el domingo a la orden…»). Entra con el usuario de la app (OAuth de Supabase Auth; el permiso se da una vez en `/oauth/consent`), respeta RLS y **no puede borrar nada**. Código en `src/mcp` (función de Supabase `mcp`, se empaqueta con `npm run build:mcp`). Guía para conectarlo y para quitar el acceso: [`docs/mcp-chatgpt.md`](docs/mcp-chatgpt.md). ⚠️ Lo que se consulta desde ChatGPT sale hacia OpenAI.
 
 ## Desarrollo local
 
@@ -48,9 +52,10 @@ Para probar las pantallas sin datos reales: `VITE_DEMO=1 npm run dev` (datos inv
 ## Seguridad
 
 - Supabase: todas las tablas con RLS; solo usuarios con sesión; nada para `anon`. Registro público desactivado.
-- Toda lectura/escritura pasa por `src/data/api.ts`; lo que llega de la base de datos o de la URL se valida antes de usarse.
+- Toda lectura/escritura pasa por `src/data/api.ts` (web) y `src/data/supabaseDatos.ts` (la misma capa, también para el servidor MCP); lo que llega de la base de datos o de la URL se valida antes de usarse.
 - Vercel (`vercel.json`): cabeceras de seguridad (CSP estricta, sin marcos, HSTS, `no-referrer`…). `npm run preview` aplica las mismas (`seguridad.headers.json`); una prueba comprueba que coinciden.
 - El CSV exportado neutraliza fórmulas (evita la «inyección CSV» al abrirlo en Excel).
+- Servidor MCP para ChatGPT: solo con OAuth y el usuario de la app (nunca `service_role`), sin herramientas de borrar ni SQL libre, entradas validadas, límite de peticiones y registros sin datos personales. La base de datos impide que un token de asistente borre o toque los ajustes. Auditoría en `docs/plan-calendario.md` (apartado 4).
 
 ## Base de datos
 

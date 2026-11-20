@@ -96,6 +96,23 @@ describe('estado DEVUELTA e historial', () => {
   })
 })
 
+describe('servidor MCP para ChatGPT', () => {
+  const sql = sinComentarios(Object.entries(ficheros).find(([f]) => f.includes('mcp_chatgpt'))![1]).toLowerCase()
+  it('los asistentes (token con client_id) no pueden borrar órdenes, visitas ni tareas', () => {
+    for (const t of ['ordenes', 'eventos', 'tareas'])
+      expect(sql).toMatch(new RegExp(`create policy "asistentes no borran" on public\\.${t} as restrictive\\s+for delete to authenticated using \\(coalesce\\(\\(select auth\\.jwt\\(\\)\\) ->> 'client_id', ''\\) = ''\\)`))
+  })
+  it('los ajustes son de solo lectura para los asistentes', () => {
+    for (const t of ['festivos', 'reglas_plazo', 'tipos_cita'])
+      for (const op of ['insert', 'update', 'delete']) expect(sql).toMatch(new RegExp(`on public\\.${t} as restrictive\\s+for ${op} to authenticated`))
+  })
+  it('el historial apunta el origen y sigue siendo de solo lectura', () => {
+    expect(sql).toContain("check (origen in ('app', 'chatgpt'))")
+    expect(sql).not.toMatch(/create policy [^;]* on public\.historial_ordenes/)
+    expect(sql).not.toMatch(/grant /)
+  })
+})
+
 describe('conversión de fecha_visita (SQL a mano, solo con permiso)', () => {
   const conv = import.meta.glob('../../supabase/conversiones/*.sql', { query: '?raw', import: 'default', eager: true }) as Record<string, string>
   const [[nombre, sql]] = Object.entries(conv)

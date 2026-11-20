@@ -28,3 +28,6 @@ dist-ssr
 supabase/.temp
 
 .vercel
+
+# Servidor MCP: se genera con `npm run build:mcp`
+supabase/functions/mcp/index.js

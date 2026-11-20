@@ -440,4 +440,20 @@ dialog.small .dlg-body { gap: 12px; }
 .login-card .brand-mark .icon { font-size: 34px; }
 .login-card .btn { width: 100%; }
 
+/* Pantalla de permiso para conectar ChatGPT (/oauth/consent): misma tarjeta que la de entrar */
+.login-card.permiso { max-width: 460px; }
+.login-card .aviso-login { margin: 0; padding: 12px 16px; border-radius: var(--shape-m); background: var(--primary-container); color: var(--on-primary-container); display: flex; gap: 10px; align-items: flex-start; }
+.permiso-cab { display: flex; align-items: center; gap: 12px; }
+.permiso-enlace { color: var(--outline); font-size: 28px; }
+.permiso-ia { width: 64px; height: 64px; border-radius: 18px; display: grid; place-items: center; background: var(--tertiary-container); color: var(--on-tertiary-container); }
+.permiso-ia .icon { font-size: 34px; }
+.permiso-lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.permiso-lista li { display: flex; gap: 12px; align-items: flex-start; padding: 12px 16px; background: var(--sc-lowest); font-size: 14px; line-height: 20px; }
+.permiso-lista li:first-child { border-top-left-radius: var(--shape-m); border-top-right-radius: var(--shape-m); }
+.permiso-lista li:last-child { border-bottom-left-radius: var(--shape-m); border-bottom-right-radius: var(--shape-m); }
+.permiso-lista .icon { flex: none; width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; font-size: 20px; }
+.permiso-lista .icon.ok { background: var(--ok-container); color: var(--on-ok-container); }
+.permiso-lista .icon.ko { background: var(--error-container); color: var(--on-error-container); }
+.login-card .aviso-caja { align-items: flex-start; font-size: 14px; line-height: 20px; }
+
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }

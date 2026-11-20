@@ -10,7 +10,7 @@ import { leerEvento, soloCampos, CAMPOS_EVENTO, TIPOS_BASE, eventoNuevo, ultimoD
 import { leerTarea, tareaNueva, CAMPOS_TAREA, type Tarea } from '../lib/tareas'
 import { proximoLunes } from '../lib/semana'
 import type { CambioHistorial } from '../lib/historial'
-import type { Backend } from './api'
+import type { Backend, Conexion } from './api'
 
 const EMPRESAS = [
   'TALLERES PÉREZ SL',
@@ -140,6 +140,8 @@ let festivos: Festivo[] = [...FESTIVOS_ALBACETE]
 let reglas: ReglaFila[] = []
 const espera = () => new Promise((r) => setTimeout(r, 120))
 const sesionDemo = { user: { email: 'demo@ejemplo.test', id: 'demo' } } as unknown as Session
+
+let conexiones: Conexion[] = [{ clientId: '00000000-0000-4000-8000-000000000001', nombre: 'ChatGPT', desde: '2026-11-20T10:00:00Z' }]
 
 export const backendDemo: Backend = {
   async sesion() {
@@ -284,6 +286,27 @@ export const backendDemo: Backend = {
   },
   async guardarTipo(t) {
     tipos = [...tipos.filter((x) => x.id !== t.id), t]
+    return null
+  },
+  async obtenerEvento(id) {
+    return { data: eventos.find((e) => e.id === id) ?? null, error: null }
+  },
+  async obtenerTarea(id) {
+    return { data: tareas.find((t) => t.id === id) ?? null, error: null }
+  },
+  // Conexión de asistentes: en la demo se simula (nunca llama a ningún servidor de verdad)
+  async oauthDetalles(authorizationId) {
+    if (authorizationId === 'ya') return { data: { tipo: 'volver', url: 'https://chatgpt.com/connector_platform_oauth_redirect?code=demo' }, error: null }
+    return { data: { tipo: 'pedir', cliente: 'ChatGPT', redirectUri: 'https://chatgpt.com/connector_platform_oauth_redirect', email: 'demo@ejemplo.es' }, error: null }
+  },
+  async oauthDecidir(_id, permitir) {
+    return { data: `https://chatgpt.com/connector_platform_oauth_redirect?${permitir ? 'code=demo' : 'error=access_denied'}`, error: null }
+  },
+  async listarConexiones() {
+    return { data: [...conexiones], error: null }
+  },
+  async revocarConexion(clientId) {
+    conexiones = conexiones.filter((c) => c.clientId !== clientId)
     return null
   },
 }

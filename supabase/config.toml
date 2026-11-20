@@ -353,13 +353,23 @@ enabled = false
 # domain = "example.clerk.accounts.dev"
 
 # OAuth server configuration
+# Servidor OAuth 2.1 para conectar ChatGPT con el usuario de la app (servidor MCP, ver docs/mcp-chatgpt.md).
+# La pantalla de permiso es la web: site_url + authorization_url_path = https://vicky-inspe.vercel.app/oauth/consent
+# OJO: en producción se activa en el panel de Supabase (Authentication > OAuth Server) SOLO con permiso de la usuaria.
 [auth.oauth_server]
 # Enable OAuth server functionality
-enabled = false
+enabled = true
 # Path for OAuth consent flow UI
 authorization_url_path = "/oauth/consent"
-# Allow dynamic client registration
-allow_dynamic_registration = false
+# Allow dynamic client registration (ChatGPT se registra solo; la pantalla de permiso solo deja volver a chatgpt.com)
+allow_dynamic_registration = true
+
+# Servidor MCP para ChatGPT. index.js se GENERA con `npm run build:mcp` (desde src/mcp).
+# verify_jwt = false: el propio servidor comprueba el token (si no, la pasarela rechazaría la petición
+# de descubrimiento de OAuth, que va sin token). Ver src/mcp/http.ts.
+[functions.mcp]
+verify_jwt = false
+entrypoint = "./functions/mcp/index.js"
 
 [edge_runtime]
 enabled = true
