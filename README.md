@@ -31,6 +31,10 @@ Las fechas límite salen de **reglas de plazo** (`src/lib/plazos/reglas.ts`), qu
 
 Desde ChatGPT se puede consultar y apuntar cosas hablando normal («¿qué vence esta semana?», «apunta visita el domingo a la orden…»). Entra con el usuario de la app (OAuth de Supabase Auth; el permiso se da una vez en `/oauth/consent`), respeta RLS y **no puede borrar nada**. Código en `src/mcp` (función de Supabase `mcp`, se empaqueta con `npm run build:mcp`). Guía para conectarlo y para quitar el acceso: [`docs/mcp-chatgpt.md`](docs/mcp-chatgpt.md). ⚠️ Lo que se consulta desde ChatGPT sale hacia OpenAI.
 
+## Respaldo en Google Sheets
+
+Todo lo que se apunta en la web se copia solo a una hoja de Google Sheets (cada tabla en su pestaña, **solo copia**): al momento con cada cambio y entera cada noche; lo borrado se marca, no se quita; copia semanal del archivo en Drive. Buzón en `google-sheets/respaldo.gs` (Apps Script) y avisos con `pg_net`/`pg_cron` en la migración `20261120120000_respaldo_google_sheets.sql`. Puesta en marcha: [`docs/respaldo-google-sheets.md`](docs/respaldo-google-sheets.md).
+
 ## Desarrollo local
 
 ```bash
