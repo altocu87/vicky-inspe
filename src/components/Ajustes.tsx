@@ -8,6 +8,7 @@ import { CAMPOS_PARTIDA, describirRegla, NOMBRE_CAMPO, NOMBRE_UNIDAD, UNIDADES, 
 import { useAgenda } from '../state/agenda'
 import { ICONOS_TIPO, RE_ID_TIPO, type TipoCita } from '../lib/eventos'
 import { normal } from '../lib/filtros'
+import { ICONO_TEMA, NOMBRE_TEMA, TEMAS, useTema } from '../tema'
 
 const NOMBRE_AMBITO: Record<Ambito, string> = { nacional: 'Nacional', autonomico: 'Castilla-La Mancha', local: 'Local (Albacete)' }
 
@@ -44,6 +45,8 @@ export function Ajustes({
         </button>
         <span className="title-l">Ajustes</span>
       </header>
+
+      <SeccionTema />
 
       <section className="section aj-sec" aria-labelledby="aj-fest">
         <div className="section-title">
@@ -544,6 +547,30 @@ function Conexiones({ avisar }: { avisar: (m: string, e?: boolean) => void }) {
           </li>
         ))}
       </ul>
+    </section>
+  )
+}
+
+/** Apariencia: elegir entre automático, claro y oscuro */
+function SeccionTema() {
+  const [tema, setTema] = useTema()
+  return (
+    <section className="section aj-sec" aria-labelledby="aj-tema">
+      <div className="section-title">
+        <span className="icon">contrast</span>
+        <h2 id="aj-tema" className="title-m">
+          Apariencia
+        </h2>
+      </div>
+      <p className="body-m muted">«Automático» usa el modo claro u oscuro que tenga el dispositivo. Se guarda en este navegador.</p>
+      <div className="seg mini" role="radiogroup" aria-label="Tema">
+        {TEMAS.map((t) => (
+          <button key={t} role="radio" aria-checked={t === tema} className={t === tema ? 'on' : ''} onClick={() => setTema(t)}>
+            <span className="icon">{ICONO_TEMA[t]}</span>
+            {NOMBRE_TEMA[t]}
+          </button>
+        ))}
+      </div>
     </section>
   )
 }

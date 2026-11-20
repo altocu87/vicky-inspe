@@ -56,8 +56,7 @@
   -webkit-font-smoothing: antialiased;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
+:root[data-tema="oscuro"] {
     --primary: #bac3ff;
     --on-primary: #08218a;
     --primary-container: #293ca0;
@@ -91,7 +90,6 @@
     --inverse-primary: #4355b9;
     --scrim: rgb(0 0 0 / 0.6);
     color-scheme: dark;
-  }
 }
 
 * { box-sizing: border-box; }
@@ -307,7 +305,8 @@ button, input, textarea, select { font: inherit; color: inherit; }
 .n-ok > .icon { color: var(--on-ok-container); }
 .n-medio > .icon { color: #b06d00; }
 .n-urgente > .icon, .n-vencido > .icon { color: var(--error); }
-@media (prefers-color-scheme: dark) { .n-medio > .icon { color: var(--on-warn-container); } .n-ok > .icon { color: var(--on-ok-container); } }
+:root[data-tema="oscuro"] .n-medio > .icon { color: var(--on-warn-container); }
+:root[data-tema="oscuro"] .n-ok > .icon { color: var(--on-ok-container); }
 
 /* ============ Estado vacío / carga ============ */
 .empty { text-align: center; padding: 64px 16px; color: var(--on-surface-variant); }

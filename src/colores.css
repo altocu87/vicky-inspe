@@ -8,8 +8,7 @@
   --c-venc: #ffd5cb;    --on-c-venc: #8e1e0b;   --s-venc: #e2553a;
   --c-todos: #ece4ff;   --on-c-todos: #3f2a85;
 }
-@media (prefers-color-scheme: dark) {
-  :root {
+:root[data-tema="oscuro"] {
     --c-curso: #23365f;  --on-c-curso: #d9e3ff;  --s-curso: #86a6ff;
     --c-pte: #4b3118;    --on-c-pte: #ffdcb9;    --s-pte: #ffb26b;
     --c-dev: #6b3108;    --on-c-dev: #ffdcc2;    --s-dev: #ff9a4d;
@@ -17,7 +16,6 @@
     --c-urg: #57202f;    --on-c-urg: #ffd9e2;    --s-urg: #ff8fb0;
     --c-venc: #5a2219;   --on-c-venc: #ffd6cc;   --s-venc: #ff9a84;
     --c-todos: #33295a;  --on-c-todos: #e7dcff;
-  }
 }
 
 .e-curso { --c: var(--c-curso); --on-c: var(--on-c-curso); --s: var(--s-curso); }
@@ -42,9 +40,7 @@
     radial-gradient(50% 50% at 90% 90%, var(--c-curso), transparent 70%),
     var(--surface);
 }
-@media (prefers-color-scheme: dark) {
-  .login { background: radial-gradient(60% 50% at 15% 10%, #4b3118, transparent 70%), radial-gradient(50% 50% at 90% 90%, var(--c-curso), transparent 70%), var(--surface); }
-}
+:root[data-tema="oscuro"] .login { background: radial-gradient(60% 50% at 15% 10%, #4b3118, transparent 70%), radial-gradient(50% 50% at 90% 90%, var(--c-curso), transparent 70%), var(--surface); }
 
 /* Etiquetas de estado */
 .badge.e-curso, .badge.e-pte, .badge.e-dev, .badge.e-fin { background: var(--c); color: var(--on-c); }
@@ -92,4 +88,4 @@
 
 /* FAB a juego con el logo */
 .fab { background: #ffe1c2; color: #6b3600; }
-@media (prefers-color-scheme: dark) { .fab { background: #6b3e14; color: #ffdcb9; } }
+:root[data-tema="oscuro"] .fab { background: #6b3e14; color: #ffdcb9; }

@@ -11,6 +11,7 @@ import { plazoDe, proximoPlazo, type ContextoPlazos } from './lib/plazos/motor'
 import { combinarReglas, type ReglaFila } from './lib/plazos/reglas'
 import { leerRuta, type Ruta } from './lib/ruta'
 import { irA } from './nav'
+import { ICONO_TEMA, NOMBRE_TEMA, TEMAS, useTema } from './tema'
 import { Login } from './components/Login'
 import { Logo } from './components/Logo'
 import { OrdenCard } from './components/OrdenCard'
@@ -434,6 +435,7 @@ function Panel({ email }: { email: string }) {
           >
             <span className="icon">help</span>
           </button>
+          <BotonTema />
           <button className="icon-btn tonal" data-tour="ajustes" onClick={() => irA({ pantalla: 'ajustes' })} aria-label="Ajustes" title="Ajustes">
             <span className="icon">settings</span>
           </button>
@@ -704,5 +706,21 @@ function SnackBar({ snack, cerrar }: { snack: Snack; cerrar: () => void }) {
         </button>
       )}
     </div>
+  )
+}
+
+/** Botón de la barra superior: cambia entre automático, claro y oscuro */
+function BotonTema() {
+  const [tema, setTema] = useTema()
+  const siguiente = TEMAS[(TEMAS.indexOf(tema) + 1) % TEMAS.length]
+  return (
+    <button
+      className="icon-btn tonal"
+      onClick={() => setTema(siguiente)}
+      aria-label={`Tema: ${NOMBRE_TEMA[tema]}. Cambiar a ${NOMBRE_TEMA[siguiente]}`}
+      title={`Tema: ${NOMBRE_TEMA[tema]} (pulsa para ${NOMBRE_TEMA[siguiente].toLowerCase()})`}
+    >
+      <span className="icon">{ICONO_TEMA[tema]}</span>
+    </button>
   )
 }

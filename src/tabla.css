@@ -123,7 +123,7 @@ tr.fin .tag { background: var(--sc-high); color: var(--on-surface-variant); }
 .sino.si { color: #1e8e3e; }
 .sino.no { color: var(--outline); }
 .sino.pte { color: var(--error); }
-@media (prefers-color-scheme: dark) { .sino.si { color: #7fd99a; } }
+:root[data-tema="oscuro"] .sino.si { color: #7fd99a; }
 
 /* ============ Formulario: extras ============ */
 .fields.three { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
