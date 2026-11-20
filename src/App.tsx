@@ -18,6 +18,7 @@ import { Estadisticas } from './components/Estadisticas'
 import { OrdenForm } from './components/OrdenForm'
 import { ConfirmDelete } from './components/ConfirmDelete'
 import { Ajustes } from './components/Ajustes'
+import { Tutorial } from './components/Tutorial'
 import { COLUMNAS, ColumnasMenu, ListaMovil, OCULTAS_DEF, TablaOrdenes, type Sort, type SortKey } from './components/TablaOrdenes'
 import { GestorAgenda } from './components/agenda/Gestor'
 import { AgendaCtx, useAgendaEstado } from './state/agenda'
@@ -185,6 +186,7 @@ function Panel({ email }: { email: string }) {
   const [deleting, setDeleting] = useState<Orden | null>(null)
   const [snack, setSnack] = useState<Snack | null>(null)
   const [buscando, setBuscando] = useState(false)
+  const [tutorial, setTutorial] = useState(false)
   const [ruta, setRuta] = useState<Ruta>(() => leerRuta(window.location.hash))
   const pantalla = ruta.pantalla
 
@@ -411,7 +413,7 @@ function Panel({ email }: { email: string }) {
                 <span className="icon">table_rows</span>
                 Órdenes
               </button>
-              <button className={enCal ? 'on' : ''} aria-current={enCal ? 'page' : undefined} onClick={() => irA({ pantalla: 'calendario' })}>
+              <button className={enCal ? 'on' : ''} data-tour="nav-cal" aria-current={enCal ? 'page' : undefined} onClick={() => irA({ pantalla: 'calendario' })}>
                 <span className="icon">calendar_month</span>
                 Calendario
               </button>
@@ -423,7 +425,16 @@ function Panel({ email }: { email: string }) {
               Estadísticas
             </button>
           )}
-          <button className={`icon-btn tonal${mobile ? ' stats-btn' : ''}`} onClick={() => irA({ pantalla: 'ajustes' })} aria-label="Ajustes" title="Ajustes">
+          <button
+            className={`icon-btn tonal${mobile ? ' stats-btn' : ''}`}
+            data-tour="ayuda"
+            onClick={() => setTutorial(true)}
+            aria-label="Cómo funciona (tutorial)"
+            title="Cómo funciona"
+          >
+            <span className="icon">help</span>
+          </button>
+          <button className="icon-btn tonal" data-tour="ajustes" onClick={() => irA({ pantalla: 'ajustes' })} aria-label="Ajustes" title="Ajustes">
             <span className="icon">settings</span>
           </button>
           <button className="icon-btn tonal" title={`Cerrar sesión (${email})`} aria-label="Cerrar sesión" onClick={salir}>
@@ -470,7 +481,7 @@ function Panel({ email }: { email: string }) {
                 </p>
               </div>
               <div className="hero-actions">
-                <button className="icon-btn tonal" onClick={() => setBuscando(true)} aria-label="Buscar" title="Buscar">
+                <button className="icon-btn tonal" data-tour="buscar" onClick={() => setBuscando(true)} aria-label="Buscar" title="Buscar">
                   <span className="icon">search</span>
                 </button>
                 <button
@@ -494,7 +505,7 @@ function Panel({ email }: { email: string }) {
                 {ordenes.length} en total · {stats['EN CURSO'] + stats['PTE ENTREGA'] + stats.DEVUELTA} activas
               </p>
             </div>
-            <label className="search">
+            <label className="search" data-tour="buscar">
               <span className="icon">search</span>
               <span className="sr-only">Buscar</span>
               <input id="buscar" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar nº, empresa, objeto, tareas… ( / )" type="search" enterKeyHint="search" />
@@ -507,7 +518,7 @@ function Panel({ email }: { email: string }) {
           </section>
         )}
 
-        <div className="stats">
+        <div className="stats" data-tour="totales">
           {statCards.map((s) => (
             <button
               key={s.k}
@@ -618,7 +629,7 @@ function Panel({ email }: { email: string }) {
         )}
 
         {!enCal && (
-          <button className="fab" onClick={() => setEditing('new')} aria-label="Nueva orden">
+          <button className="fab" data-tour="nueva" onClick={() => setEditing('new')} aria-label="Nueva orden">
             <span className="icon">add</span>
             <span className="fab-label">Nueva orden</span>
           </button>
@@ -642,6 +653,8 @@ function Panel({ email }: { email: string }) {
 
         {snack && <SnackBar snack={snack} cerrar={() => setSnack(null)} />}
 
+        {tutorial && <Tutorial ruta={ruta} onClose={() => setTutorial(false)} />}
+
         {mobile && (
           <nav className="nav-bar" aria-label="Secciones">
             <button className={!enCal ? 'on' : ''} aria-current={!enCal ? 'page' : undefined} onClick={() => irA({ pantalla: 'lista' })}>
@@ -650,7 +663,7 @@ function Panel({ email }: { email: string }) {
               </span>
               Órdenes
             </button>
-            <button className={enCal ? 'on' : ''} aria-current={enCal ? 'page' : undefined} onClick={() => irA({ pantalla: 'calendario' })}>
+            <button className={enCal ? 'on' : ''} data-tour="nav-cal" aria-current={enCal ? 'page' : undefined} onClick={() => irA({ pantalla: 'calendario' })}>
               <span className="nav-ic">
                 <span className={`icon${enCal ? ' fill' : ''}`}>calendar_month</span>
               </span>

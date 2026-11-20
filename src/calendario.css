@@ -421,3 +421,34 @@ td.acc { white-space: nowrap; }
 .hist-det { font-size: 14px; color: var(--on-surface-variant); white-space: pre-wrap; overflow-wrap: anywhere; padding: 6px 10px; border-radius: var(--shape-s); background: var(--sc); margin-top: 2px; }
 .hist-salto { position: absolute; left: 44px; top: -9px; font-size: 11px; font-weight: 700; color: var(--outline); background: var(--sc-low); padding: 0 6px; border-radius: var(--shape-full); }
 .hist-nota { margin: 8px 0 0; font-size: 12px; }
+
+/* ---- Tutorial interactivo («?») ---- */
+.tour { position: fixed; inset: 0; z-index: 60; }
+.tour-fondo { position: fixed; inset: 0; background: var(--scrim); }
+.tour-foco {
+  position: fixed; border-radius: var(--shape-m); pointer-events: none;
+  box-shadow: 0 0 0 9999px var(--scrim), 0 0 0 3px var(--primary);
+  transition: top 280ms var(--ease-emph), left 280ms var(--ease-emph), width 280ms var(--ease-emph), height 280ms var(--ease-emph);
+}
+.tour-tarjeta {
+  position: fixed; left: 50%; transform: translateX(-50%);
+  width: min(440px, calc(100vw - 24px)); max-height: 46dvh; overflow: auto;
+  display: flex; flex-direction: column; gap: 8px;
+  padding: 18px 18px 12px; border-radius: var(--shape-xl);
+  background: var(--sc-highest); color: var(--on-surface); box-shadow: var(--elev-3);
+  animation: rise 320ms var(--spring-default) both;
+}
+.tour-tarjeta:focus { outline: none; }
+.tour-tarjeta:focus-visible { outline: 3px solid var(--primary); outline-offset: 2px; }
+.tour-tarjeta.abajo { bottom: calc(16px + env(safe-area-inset-bottom)); }
+.tour-tarjeta.arriba { top: calc(16px + env(safe-area-inset-top)); }
+.tour-tarjeta.centro { top: 50%; transform: translate(-50%, -50%); }
+.tour-tarjeta h2, .tour-tarjeta p { margin: 0; }
+.tour-paso { color: var(--primary); font-weight: 700; }
+.tour-puntos { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 4px; }
+.tour-puntos span { width: 7px; height: 7px; border-radius: 50%; background: var(--outline-variant); }
+.tour-puntos span.on { background: var(--primary); width: 18px; border-radius: var(--shape-full); }
+.tour-botones { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+.tour-botones .spacer { flex: 1; }
+.tour-botones .btn { --h: 44px; }
+@media (prefers-reduced-motion: reduce) { .tour-foco, .tour-tarjeta { transition: none; animation: none; } }

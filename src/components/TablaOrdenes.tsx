@@ -261,7 +261,7 @@ export function TablaOrdenes({
   }
 
   return (
-    <div className="table-wrap" role="region" aria-label="Tabla de órdenes" tabIndex={0}>
+    <div className="table-wrap" role="region" aria-label="Tabla de órdenes" tabIndex={0} data-tour="lista">
       <table className="xtable">
         <colgroup>
           {cols.map((c) => (
@@ -334,7 +334,7 @@ export function ListaMovil({ ordenes, onOpen }: { ordenes: Orden[]; onOpen: (o: 
   const ctx = usePlazosCtx()
   const { proximas } = useAgenda()
   return (
-    <ul className="mlist">
+    <ul className="mlist" data-tour="lista">
       {ordenes.map((o) => {
         const fin = o.estado === 'FINALIZADA'
         const p9 = plazoDe(o, 'lim9', ctx)

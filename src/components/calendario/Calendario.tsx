@@ -255,7 +255,7 @@ export function Calendario({
   return (
     <div className={`calendario v-${vista}`}>
       <div className="cal-head">
-        <div className="seg mini vistas" role="tablist" aria-label="Vista del calendario">
+        <div className="seg mini vistas" role="tablist" aria-label="Vista del calendario" data-tour="vistas">
           {VISTAS.map((v) => (
             <button
               key={v.id}
@@ -340,7 +340,12 @@ export function Calendario({
             )}
             <span className="spacer" />
             {(mobile || !verPP) && (
-              <button className="btn tonal sm" onClick={() => (mobile ? setPpMovil(true) : setVerPP(true))} aria-haspopup={mobile ? 'dialog' : undefined}>
+              <button
+                className="btn tonal sm"
+                data-tour="porprogramar"
+                onClick={() => (mobile ? setPpMovil(true) : setVerPP(true))}
+                aria-haspopup={mobile ? 'dialog' : undefined}
+              >
                 <span className="icon">pending_actions</span>
                 Por programar
                 <span className="chip-n">{pp.length}</span>
@@ -348,7 +353,7 @@ export function Calendario({
             )}
           </div>
 
-          <div className="chips capas" role="group" aria-label="Capas">
+          <div className="chips capas" role="group" aria-label="Capas" data-tour="capas">
             {CAPAS.map((c) => {
               const on = capas.has(c)
               return (
@@ -363,7 +368,7 @@ export function Calendario({
           </div>
 
           <div className={`cal-cuerpo${conFC && verPP ? ' con-pp' : ''}`} onTouchStart={mobile ? onTouchStart : undefined} onTouchEnd={mobile ? onTouchEnd : undefined}>
-            <div className="cal-vista">
+            <div className="cal-vista" data-tour="contenido">
               {conFC ? (
                 <Suspense
                   fallback={
@@ -400,7 +405,7 @@ export function Calendario({
               )}
             </div>
             {conFC && verPP && (
-              <aside className="pp-lado" aria-label="Por programar">
+              <aside className="pp-lado" aria-label="Por programar" data-tour="porprogramar">
                 <div className="pp-cab">
                   <h2 className="title-m">
                     Por programar <span className="chip-n">{pp.length}</span>
@@ -413,7 +418,7 @@ export function Calendario({
               </aside>
             )}
             {!mobile && !conFC && verPP && (
-              <aside className="pp-lado" aria-label="Por programar">
+              <aside className="pp-lado" aria-label="Por programar" data-tour="porprogramar">
                 <div className="pp-cab">
                   <h2 className="title-m">
                     Por programar <span className="chip-n">{pp.length}</span>
@@ -453,7 +458,7 @@ export function Calendario({
             </button>
           </div>
         )}
-        <button className="fab" aria-expanded={menuMas} aria-haspopup="menu" aria-label="Añadir" onClick={() => setMenuMas((v) => !v)}>
+        <button className="fab" data-tour="anadir" aria-expanded={menuMas} aria-haspopup="menu" aria-label="Añadir" onClick={() => setMenuMas((v) => !v)}>
           <span className="icon">{menuMas ? 'close' : 'add'}</span>
           <span className="fab-label">Añadir</span>
         </button>

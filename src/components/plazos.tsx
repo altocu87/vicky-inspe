@@ -45,6 +45,7 @@ export function BotonProgramar({ orden, className = '' }: { orden: Pick<Orden, '
       type="button"
       className={`icon-btn ver-cal ${className}`}
       title="Programar visita"
+      data-tour="programar"
       aria-label={`Programar una visita para la orden ${orden.num_orden}`}
       onClick={(e) => {
         e.stopPropagation()
