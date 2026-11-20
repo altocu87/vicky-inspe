@@ -100,6 +100,13 @@ const PASOS: Paso[] = [
     texto: 'Festivos de Albacete, reglas de plazo y tipos de cita.',
   },
   {
+    titulo: 'Copia de seguridad',
+    texto:
+      'Automática, no tienes que hacer nada. Órdenes, visitas y citas, tareas, historial, tipos de cita, festivos y reglas de plazo se copian en segundos a la hoja de Google Sheets «Respaldo Inspecciones» (Drive de Alex). Cada noche, copia completa por si falló algún aviso; cada lunes se guarda el archivo en la carpeta «Copias respaldo Inspecciones» (12 últimas, unos 3 meses). Lo borrado queda con fecha en «BORRADA EL». Es solo una copia: tocar la hoja no cambia la web. Bajar a Excel: Archivo › Descargar › Microsoft Excel.',
+    textoMovil:
+      'Automática, no tienes que hacer nada: todo se copia al momento a la hoja «Respaldo Inspecciones» del Drive de Alex. Cada noche se manda una copia completa y cada lunes se guarda una copia del archivo, que se conserva 3 meses.',
+  },
+  {
     objetivo: 'ayuda',
     titulo: '¡Listo!',
     texto: 'Cuando quieras repasar algo, pulsa este «?». Los datos no se han tocado durante el tutorial.',
