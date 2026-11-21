@@ -13,13 +13,12 @@ import { leerRuta, type Ruta } from './lib/ruta'
 import { irA } from './nav'
 import { Login } from './components/Login'
 import { Logo } from './components/Logo'
-import { OrdenCard } from './components/OrdenCard'
 import { Estadisticas } from './components/Estadisticas'
 import { OrdenForm } from './components/OrdenForm'
 import { ConfirmDelete } from './components/ConfirmDelete'
 import { Ajustes } from './components/Ajustes'
 import { Tutorial } from './components/Tutorial'
-import { COLUMNAS, ColumnasMenu, ListaMovil, OCULTAS_DEF, TablaOrdenes, type Sort, type SortKey } from './components/TablaOrdenes'
+import { COLUMNAS, ListaMovil, OCULTAS_DEF, TablaOrdenes, type Sort, type SortKey } from './components/TablaOrdenes'
 import { GestorAgenda } from './components/agenda/Gestor'
 import { AgendaCtx, useAgendaEstado } from './state/agenda'
 import type { Evento } from './lib/eventos'
@@ -28,7 +27,6 @@ import { textoHora } from './lib/eventos'
 // El calendario (y la librería de repeticiones) se descarga solo al abrirlo
 const Calendario = lazy(() => import('./components/calendario/Calendario').then((m) => ({ default: m.Calendario })))
 
-type Vista = 'tabla' | 'tarjetas'
 type Snack = { msg: string; err?: boolean; action?: { label: string; fn: () => void } }
 
 const SORTS_MOVIL: { id: string; label: string; sort: Sort }[] = [
@@ -179,9 +177,9 @@ function Panel({ email }: { email: string }) {
   const [q, setQ] = useState('')
   const [filtro, setFiltro] = useState<Filtro>('todos')
   const [ocultarFin, setOcultarFin] = usePref('ocultarFin', true)
-  const [vista, setVista] = usePref<Vista>('vista', 'tabla')
   const [sort, setSort] = usePref<Sort>('sort', { key: 'fecha_orden', dir: 'desc' })
-  const [ocultas, setOcultas] = usePref<SortKey[]>('ocultas', OCULTAS_DEF)
+  // Columnas fijas: ya no se eligen desde la cabecera
+  const ocultas: SortKey[] = OCULTAS_DEF
   const [editing, setEditing] = useState<Orden | 'new' | null>(null)
   const [deleting, setDeleting] = useState<Orden | null>(null)
   const [snack, setSnack] = useState<Snack | null>(null)
@@ -363,7 +361,6 @@ function Panel({ email }: { email: string }) {
   ]
 
   const sortActual = SORTS_MOVIL.find((s) => s.sort.key === sort.key && s.sort.dir === sort.dir)?.id ?? ''
-  const verTabla = vista === 'tabla'
   const enCal = pantalla === 'calendario'
   const salir = async () => (await api()).salir()
 
@@ -398,7 +395,7 @@ function Panel({ email }: { email: string }) {
     <PlazosCtx.Provider value={ctx}>
      <AgendaCtx.Provider value={agenda}>
       <GestorAgenda ordenes={ordenes} festivos={ctx.festivos} abrirOrden={setEditing} actualizarOrden={actualizarOrden} avisar={avisar}>
-      <div className={`app${verTabla && !mobile && !enCal ? ' wide' : ''}${mobile ? ' con-nav' : ''}`}>
+      <div className={`app${!mobile && !enCal ? ' wide' : ''}${mobile ? ' con-nav' : ''}`}>
         {mobile ? (
           <>
           <header className="topbar">
@@ -505,7 +502,7 @@ function Panel({ email }: { email: string }) {
           <div className="cabecera">
             <div className="cab-izq">
             <div className="stats" data-tour="totales">
-              {statCards.map((s) => (
+              {statCards.filter((s) => s.k !== 'sintiempo').map((s) => (
                 <button
                   key={s.k}
                   className={`stat ${s.cls ?? ''}${filtro === s.k ? ' active' : ''}`}
@@ -519,6 +516,16 @@ function Panel({ email }: { email: string }) {
                   <span className="label-l">{s.label}</span>
                 </button>
               ))}
+              {/* Acceso directo al calendario (sustituye a «Sin tiempo») */}
+              <button
+                className={`stat s-cal${enCal ? ' active' : ''}`}
+                onClick={() => irA({ pantalla: enCal ? 'lista' : 'calendario' })}
+                aria-pressed={enCal}
+                title={enCal ? 'Volver a las órdenes' : 'Abrir el calendario'}
+              >
+                <span className="icon fill">{enCal ? 'table_rows' : 'calendar_month'}</span>
+                <span className="label-l">{enCal ? 'Órdenes' : 'Calendario'}</span>
+              </button>
             </div>
             {!enCal && !loading && visibles.length > 0 && (
               <p className="count label-l muted">
@@ -545,8 +552,6 @@ function Panel({ email }: { email: string }) {
                   <span className="icon">monitoring</span>
                   Estadísticas
                 </button>
-                {!enCal && !verTabla && <SortMenu actual={sortActual} onPick={(id) => setSort(SORTS_MOVIL.find((s) => s.id === id)!.sort)} conTexto />}
-                {!enCal && verTabla && <ColumnasMenu ocultas={ocultas} setOcultas={setOcultas} />}
                 <button className="icon-btn tonal" data-tour="ayuda" onClick={() => setTutorial(true)} aria-label="Cómo funciona (tutorial)" title="Cómo funciona">
                   <span className="icon">help</span>
                 </button>
@@ -584,16 +589,6 @@ function Panel({ email }: { email: string }) {
                     <button className="icon-btn" title="Exportar a Excel (CSV)" aria-label="Exportar a Excel (CSV)" onClick={() => exportarCsv(visibles, ctx, agenda.proximas)}>
                       <span className="icon">download</span>
                     </button>
-                    <div className="seg mini" role="radiogroup" aria-label="Vista">
-                      <button role="radio" aria-checked={verTabla} className={verTabla ? 'on' : ''} onClick={() => setVista('tabla')} title="Tabla">
-                        <span className="icon">table_rows</span>
-                        <span className="sr-only">Tabla</span>
-                      </button>
-                      <button role="radio" aria-checked={!verTabla} className={!verTabla ? 'on' : ''} onClick={() => setVista('tarjetas')} title="Tarjetas">
-                        <span className="icon">grid_view</span>
-                        <span className="sr-only">Tarjetas</span>
-                      </button>
-                    </div>
                   </>
                 )}
               </div>
@@ -640,14 +635,8 @@ function Panel({ email }: { email: string }) {
           </div>
         ) : mobile ? (
           <ListaMovil ordenes={visibles} onOpen={setEditing} />
-        ) : verTabla ? (
-          <TablaOrdenes ordenes={visibles} sort={sort} setSort={setSort} ocultas={ocultas} onOpen={setEditing} />
         ) : (
-          <div className="grid">
-            {visibles.map((o, i) => (
-              <OrdenCard key={o.id} orden={o} index={i} onOpen={() => setEditing(o)} />
-            ))}
-          </div>
+          <TablaOrdenes ordenes={visibles} sort={sort} setSort={setSort} ocultas={ocultas} onOpen={setEditing} />
         )}
 
         {!enCal && (

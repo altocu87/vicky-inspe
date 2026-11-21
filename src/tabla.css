@@ -233,3 +233,13 @@ tr.fin .tag { background: var(--sc-high); color: var(--on-surface-variant); }
   .search.compacta { flex: 1 1 0; max-width: none; min-width: 100px; order: 1; }
   .cab-fila:last-child > :not(.search) { order: 2; }
 }
+
+/* Tarjeta-acceso al calendario: distinta a las de totales (borde discontinuo, icono grande centrado) */
+.stat.s-cal {
+  align-items: center; justify-content: center; text-align: center; gap: 2px;
+  background: var(--surface); color: var(--primary);
+  border: 2px dashed var(--primary);
+}
+.stat.s-cal .icon { font-size: 34px; background: none; width: auto; height: auto; }
+.stat.s-cal:hover { background: var(--primary-container); color: var(--on-primary-container); }
+.stat.s-cal.active { background: var(--primary); color: var(--on-primary); border-style: solid; }
