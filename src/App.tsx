@@ -357,19 +357,88 @@ function Panel({ email }: { email: string }) {
     { k: 'PTE ENTREGA', label: 'Pte. entrega', n: stats['PTE ENTREGA'], icon: 'hourglass_top', cls: 's-pte' },
     { k: 'DEVUELTA', label: 'Devueltas', n: stats.DEVUELTA, icon: 'assignment_return', cls: 's-dev' },
     { k: 'urgentes', label: 'Menos de 30 días', n: stats.urgentes, icon: 'warning', cls: 's-urg' },
-    { k: 'sintiempo', label: 'Sin tiempo', n: stats.sintiempo, icon: 'error', cls: 's-venc' },
   ]
 
   const sortActual = SORTS_MOVIL.find((s) => s.sort.key === sort.key && s.sort.dir === sort.dir)?.id ?? ''
   const enCal = pantalla === 'calendario'
   const salir = async () => (await api()).salir()
 
-  if (pantalla === 'stats')
-    return (
-      <div className="app">
-        <Estadisticas ordenes={ordenes} onBack={volver} />
-      </div>
-    )
+  const enStats = pantalla === 'stats'
+  const enLista = !enCal && !enStats
+  const seccion = enCal ? 'Calendario' : enStats ? 'Estadísticas' : 'Órdenes'
+  /** Las tarjetas de acceso abren su pantalla; si ya estás en ella, vuelven a Órdenes */
+  const irSeccion = (p: 'calendario' | 'stats') => irA({ pantalla: pantalla === p ? 'lista' : p })
+  /** Desde Estadísticas, filtrar o buscar te lleva a la lista de órdenes */
+  function filtrarTarjeta(f: Filtro) {
+    if (enStats) {
+      setFiltro(f)
+      if (f === 'FINALIZADA') setOcultarFin(false)
+      irA({ pantalla: 'lista' })
+    } else elegirFiltro(f)
+  }
+  function buscarTexto(v: string) {
+    setQ(v)
+    if (enStats && v) irA({ pantalla: 'lista' })
+  }
+  const accesos: { p: 'calendario' | 'stats'; label: string; icon: string; tour?: string }[] = [
+    { p: 'calendario', label: 'Calendario', icon: 'calendar_month', tour: 'nav-cal' },
+    { p: 'stats', label: 'Estadísticas', icon: 'monitoring' },
+  ]
+  const tarjetas = (
+    <div className="stats tarjetas-top" data-tour="totales">
+      {statCards.map((s) => (
+        <button
+          key={s.k}
+          className={`stat ${s.cls ?? ''}${filtro === s.k && !enStats ? ' active' : ''}`}
+          onClick={() => filtrarTarjeta(s.k)}
+          aria-pressed={filtro === s.k && !enStats}
+        >
+          <div className="row">
+            <span className="n">{s.n}</span>
+            <span className="icon fill">{s.icon}</span>
+          </div>
+          <span className="label-l">{s.label}</span>
+        </button>
+      ))}
+      {accesos.map((a) => {
+        const aqui = pantalla === a.p
+        return (
+          <button
+            key={a.p}
+            className={`stat s-acceso${aqui ? ' active' : ''}`}
+            data-tour={a.tour}
+            onClick={() => irSeccion(a.p)}
+            aria-pressed={aqui}
+            title={aqui ? 'Volver a las órdenes' : `Abrir ${a.label.toLowerCase()}`}
+          >
+            <span className="icon fill">{aqui ? 'table_rows' : a.icon}</span>
+            <span className="label-l">{aqui ? 'Órdenes' : a.label}</span>
+          </button>
+        )
+      })}
+    </div>
+  )
+  const contador = enLista && !loading && visibles.length > 0 && (
+    <p className="count label-l muted">
+      {visibles.length} {visibles.length === 1 ? 'orden' : 'órdenes'}
+      {filtro !== 'todos' && ` · ${nombreFiltro(filtro)}`}
+      {ocultarFin && ' · sin finalizadas'}
+      {q && ` · «${q}»`}
+    </p>
+  )
+  const botonesFijos = (
+    <>
+      <button className="icon-btn tonal" data-tour="ayuda" onClick={() => setTutorial(true)} aria-label="Cómo funciona (tutorial)" title="Cómo funciona">
+        <span className="icon">help</span>
+      </button>
+      <button className="icon-btn tonal" data-tour="ajustes" onClick={() => irA({ pantalla: 'ajustes' })} aria-label="Ajustes" title="Ajustes">
+        <span className="icon">settings</span>
+      </button>
+      <button className="icon-btn tonal" title={`Cerrar sesión (${email})`} aria-label="Cerrar sesión" onClick={salir}>
+        <span className="icon">logout</span>
+      </button>
+    </>
+  )
 
   if (pantalla === 'ajustes')
     return (
@@ -395,68 +464,61 @@ function Panel({ email }: { email: string }) {
     <PlazosCtx.Provider value={ctx}>
      <AgendaCtx.Provider value={agenda}>
       <GestorAgenda ordenes={ordenes} festivos={ctx.festivos} abrirOrden={setEditing} actualizarOrden={actualizarOrden} avisar={avisar}>
-      <div className={`app${!mobile && !enCal ? ' wide' : ''}${mobile ? ' con-nav' : ''}`}>
+      <div className={`app${!mobile && enLista ? ' wide' : ''}`}>
         {mobile ? (
           <>
-          <header className="topbar">
-            <div className="brand">
-              <Logo size={42} />
-              <div className="brand-txt">
-                <span className="title-l">Inspecciones</span>
-                <span className="label-m muted">Seguimiento de órdenes</span>
-              </div>
-            </div>
-            <button className="icon-btn tonal stats-btn" data-tour="ayuda" onClick={() => setTutorial(true)} aria-label="Cómo funciona (tutorial)" title="Cómo funciona">
-              <span className="icon">help</span>
-            </button>
-            <button className="icon-btn tonal" data-tour="ajustes" onClick={() => irA({ pantalla: 'ajustes' })} aria-label="Ajustes" title="Ajustes">
-              <span className="icon">settings</span>
-            </button>
-            <button className="icon-btn tonal" title={`Cerrar sesión (${email})`} aria-label="Cerrar sesión" onClick={salir}>
-              <span className="icon">logout</span>
-            </button>
-          </header>
-            {buscando ? (
-                <div className="search-m">
-                  <label className="search">
-                    <button
-                      className="icon-btn"
-                      aria-label="Cerrar búsqueda"
-                      onClick={() => {
-                        setQ('')
-                        setBuscando(false)
-                      }}
-                    >
-                      <span className="icon">arrow_back</span>
-                    </button>
-                    <span className="sr-only">Buscar</span>
-                    <input
-                      autoFocus
-                      value={q}
-                      onChange={(e) => setQ(e.target.value)}
-                      placeholder="Nº, empresa, objeto, tareas…"
-                      type="search"
-                      enterKeyHint="search"
-                    />
-                    {q && (
-                      <button className="icon-btn" onClick={() => setQ('')} aria-label="Borrar búsqueda">
-                        <span className="icon">close</span>
-                      </button>
-                    )}
-                  </label>
+            <header className="topbar">
+              <div className="brand">
+                <Logo size={42} />
+                <div className="brand-txt">
+                  <span className="title-l">Inspecciones</span>
+                  <span className="label-m muted">Seguimiento de órdenes</span>
                 </div>
-              ) : (
-                <section className="hero-m">
-                  <div>
-                    <h1 className="display">{enCal ? 'Calendario' : 'Órdenes'}</h1>
-                    <p className="body-m muted" style={{ margin: '2px 0 0' }}>
-                      {stats['EN CURSO'] + stats['PTE ENTREGA'] + stats.DEVUELTA} activas · {ordenes.length} en total
-                    </p>
-                  </div>
-                  <div className="hero-actions">
-                    <button className="icon-btn tonal" data-tour="buscar" onClick={() => setBuscando(true)} aria-label="Buscar" title="Buscar">
-                      <span className="icon">search</span>
+              </div>
+              {botonesFijos}
+            </header>
+            {buscando ? (
+              <div className="search-m">
+                <label className="search">
+                  <button
+                    className="icon-btn"
+                    aria-label="Cerrar búsqueda"
+                    onClick={() => {
+                      setQ('')
+                      setBuscando(false)
+                    }}
+                  >
+                    <span className="icon">arrow_back</span>
+                  </button>
+                  <span className="sr-only">Buscar</span>
+                  <input
+                    autoFocus
+                    value={q}
+                    onChange={(e) => buscarTexto(e.target.value)}
+                    placeholder="Nº, empresa, objeto, tareas…"
+                    type="search"
+                    enterKeyHint="search"
+                  />
+                  {q && (
+                    <button className="icon-btn" onClick={() => setQ('')} aria-label="Borrar búsqueda">
+                      <span className="icon">close</span>
                     </button>
+                  )}
+                </label>
+              </div>
+            ) : (
+              <section className="hero-m">
+                <div>
+                  <h1 className="display">{seccion}</h1>
+                  <p className="body-m muted" style={{ margin: '2px 0 0' }}>
+                    {stats['EN CURSO'] + stats['PTE ENTREGA'] + stats.DEVUELTA} activas · {ordenes.length} en total
+                  </p>
+                </div>
+                <div className="hero-actions">
+                  <button className="icon-btn tonal" data-tour="buscar" onClick={() => setBuscando(true)} aria-label="Buscar" title="Buscar">
+                    <span className="icon">search</span>
+                  </button>
+                  {!enStats && (
                     <button
                       className={`icon-btn tonal fin-btn${ocultarFin ? ' on' : ''}`}
                       onClick={toggleFin}
@@ -466,141 +528,68 @@ function Panel({ email }: { email: string }) {
                     >
                       <span className="icon">{ocultarFin ? 'visibility_off' : 'visibility'}</span>
                     </button>
-                    {!enCal && <SortMenu actual={sortActual} onPick={(id) => setSort(SORTS_MOVIL.find((s) => s.id === id)!.sort)} />}
-                  </div>
-                </section>
-              )}
-            <div className="stats" data-tour="totales">
-              {statCards.map((s) => (
-                <button
-                  key={s.k}
-                  className={`stat ${s.cls ?? ''}${filtro === s.k ? ' active' : ''}`}
-                  onClick={() => elegirFiltro(s.k)}
-                  aria-pressed={filtro === s.k}
-                >
-                  <div className="row">
-                    <span className="n">{s.n}</span>
-                    <span className="icon fill">{s.icon}</span>
-                  </div>
-                  <span className="label-l">{s.label}</span>
-                </button>
-              ))}
-            </div>
-            {!enCal && !loading && visibles.length > 0 && (
-              <p className="count label-l muted">
-                {visibles.length} {visibles.length === 1 ? 'orden' : 'órdenes'}
-                {filtro !== 'todos' && ` · ${nombreFiltro(filtro)}`}
-                {ocultarFin && ' · sin finalizadas'}
-                {q && ` · «${q}»`}
-              </p>
+                  )}
+                  {enLista && <SortMenu actual={sortActual} onPick={(id) => setSort(SORTS_MOVIL.find((s) => s.id === id)!.sort)} />}
+                </div>
+              </section>
             )}
+            {tarjetas}
+            {contador}
           </>
         ) : (
-          /* Escritorio: tarjetas de totales a la izquierda y, a la derecha, dos filas
-             (navegación + botones arriba; buscador, filtros y vista abajo). */
+          /* Escritorio: tarjetas (totales + accesos a Calendario y Estadísticas) a la izquierda;
+             a la derecha, buscador y botones arriba, y «Ocultar finalizadas» y exportar abajo.
+             Es la misma cabecera en Órdenes, Calendario y Estadísticas, y se queda fija arriba. */
           <div className="cab-wrap">
-          <div className="cabecera">
-            <div className="cab-izq">
-            <div className="stats" data-tour="totales">
-              {statCards.filter((s) => s.k !== 'sintiempo').map((s) => (
-                <button
-                  key={s.k}
-                  className={`stat ${s.cls ?? ''}${filtro === s.k ? ' active' : ''}`}
-                  onClick={() => elegirFiltro(s.k)}
-                  aria-pressed={filtro === s.k}
-                >
-                  <div className="row">
-                    <span className="n">{s.n}</span>
-                    <span className="icon fill">{s.icon}</span>
-                  </div>
-                  <span className="label-l">{s.label}</span>
-                </button>
-              ))}
-              {/* Acceso directo al calendario (sustituye a «Sin tiempo») */}
-              <button
-                className={`stat s-cal${enCal ? ' active' : ''}`}
-                onClick={() => irA({ pantalla: enCal ? 'lista' : 'calendario' })}
-                aria-pressed={enCal}
-                title={enCal ? 'Volver a las órdenes' : 'Abrir el calendario'}
-              >
-                <span className="icon fill">{enCal ? 'table_rows' : 'calendar_month'}</span>
-                <span className="label-l">{enCal ? 'Órdenes' : 'Calendario'}</span>
-              </button>
-            </div>
-            {!enCal && !loading && visibles.length > 0 && (
-              <p className="count label-l muted">
-                {visibles.length} {visibles.length === 1 ? 'orden' : 'órdenes'}
-                {filtro !== 'todos' && ` · ${nombreFiltro(filtro)}`}
-                {ocultarFin && ' · sin finalizadas'}
-                {q && ` · «${q}»`}
-              </p>
-            )}
-            </div>
-            <div className="cab-der">
-              <div className="cab-fila">
-                <nav className="seg nav-seg" aria-label="Secciones">
-                  <button className={!enCal ? 'on' : ''} aria-current={!enCal ? 'page' : undefined} onClick={() => irA({ pantalla: 'lista' })}>
-                    <span className="icon">table_rows</span>
-                    Órdenes
-                  </button>
-                  <button className={enCal ? 'on' : ''} data-tour="nav-cal" aria-current={enCal ? 'page' : undefined} onClick={() => irA({ pantalla: 'calendario' })}>
-                    <span className="icon">calendar_month</span>
-                    Calendario
-                  </button>
-                </nav>
-                <button className="btn tonal stats-btn" onClick={() => irA({ pantalla: 'stats' })}>
-                  <span className="icon">monitoring</span>
-                  Estadísticas
-                </button>
-                <button className="icon-btn tonal" data-tour="ayuda" onClick={() => setTutorial(true)} aria-label="Cómo funciona (tutorial)" title="Cómo funciona">
-                  <span className="icon">help</span>
-                </button>
-                <button className="icon-btn tonal" data-tour="ajustes" onClick={() => irA({ pantalla: 'ajustes' })} aria-label="Ajustes" title="Ajustes">
-                  <span className="icon">settings</span>
-                </button>
-                <button className="icon-btn tonal" title={`Cerrar sesión (${email})`} aria-label="Cerrar sesión" onClick={salir}>
-                  <span className="icon">logout</span>
-                </button>
+            <div className="cabecera">
+              <div className="cab-izq">
+                {tarjetas}
+                {contador}
               </div>
-              <div className="cab-fila">
-                <label className="search compacta" data-tour="buscar">
-                  <span className="icon">search</span>
-                  <span className="sr-only">Buscar</span>
-                  <input id="buscar" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar… ( / )" title="Buscar nº, empresa, objeto, tareas…" type="search" enterKeyHint="search" />
-                  {q && (
-                    <button className="icon-btn" onClick={() => setQ('')} aria-label="Borrar búsqueda">
-                      <span className="icon">close</span>
-                    </button>
-                  )}
-                </label>
-                <label className="switch-row">
-                  <span className="label-l">Ocultar finalizadas</span>
-                  <span className="switch">
-                    <input type="checkbox" role="switch" checked={ocultarFin} onChange={toggleFin} />
-                    <span className="track">
-                      <span className="thumb">
-                        <span className="icon">{ocultarFin ? 'check' : 'close'}</span>
+              <div className="cab-der">
+                <div className="cab-fila">
+                  <label className="search compacta" data-tour="buscar">
+                    <span className="icon">search</span>
+                    <span className="sr-only">Buscar</span>
+                    <input id="buscar" value={q} onChange={(e) => buscarTexto(e.target.value)} placeholder="Buscar… ( / )" title="Buscar nº, empresa, objeto, tareas…" type="search" enterKeyHint="search" />
+                    {q && (
+                      <button className="icon-btn" onClick={() => setQ('')} aria-label="Borrar búsqueda">
+                        <span className="icon">close</span>
+                      </button>
+                    )}
+                  </label>
+                  {botonesFijos}
+                </div>
+                {!enStats && (
+                  <div className="cab-fila">
+                    <label className="switch-row">
+                      <span className="label-l">Ocultar finalizadas</span>
+                      <span className="switch">
+                        <input type="checkbox" role="switch" checked={ocultarFin} onChange={toggleFin} />
+                        <span className="track">
+                          <span className="thumb">
+                            <span className="icon">{ocultarFin ? 'check' : 'close'}</span>
+                          </span>
+                        </span>
                       </span>
-                    </span>
-                  </span>
-                </label>
-                {!enCal && (
-                  <>
-                    <button className="icon-btn" title="Exportar a Excel (CSV)" aria-label="Exportar a Excel (CSV)" onClick={() => exportarCsv(visibles, ctx, agenda.proximas)}>
-                      <span className="icon">download</span>
-                    </button>
-                  </>
+                    </label>
+                    {enLista && (
+                      <button className="icon-btn" title="Exportar a Excel (CSV)" aria-label="Exportar a Excel (CSV)" onClick={() => exportarCsv(visibles, ctx, agenda.proximas)}>
+                        <span className="icon">download</span>
+                      </button>
+                    )}
+                  </div>
                 )}
               </div>
             </div>
           </div>
-          </div>
         )}
-
         {loading ? (
           <div className="loader">
             <span />
           </div>
+        ) : enStats ? (
+          <Estadisticas ordenes={ordenes} />
         ) : enCal ? (
           <Suspense
             fallback={
@@ -639,7 +628,7 @@ function Panel({ email }: { email: string }) {
           <TablaOrdenes ordenes={visibles} sort={sort} setSort={setSort} ocultas={ocultas} onOpen={setEditing} />
         )}
 
-        {!enCal && (
+        {enLista && (
           <button className="fab" data-tour="nueva" onClick={() => setEditing('new')} aria-label="Nueva orden">
             <span className="icon">add</span>
             <span className="fab-label">Nueva orden</span>
@@ -666,28 +655,6 @@ function Panel({ email }: { email: string }) {
 
         {tutorial && <Tutorial ruta={ruta} onClose={() => setTutorial(false)} />}
 
-        {mobile && (
-          <nav className="nav-bar" aria-label="Secciones">
-            <button className={!enCal ? 'on' : ''} aria-current={!enCal ? 'page' : undefined} onClick={() => irA({ pantalla: 'lista' })}>
-              <span className="nav-ic">
-                <span className={`icon${!enCal ? ' fill' : ''}`}>table_rows</span>
-              </span>
-              Órdenes
-            </button>
-            <button className={enCal ? 'on' : ''} data-tour="nav-cal" aria-current={enCal ? 'page' : undefined} onClick={() => irA({ pantalla: 'calendario' })}>
-              <span className="nav-ic">
-                <span className={`icon${enCal ? ' fill' : ''}`}>calendar_month</span>
-              </span>
-              Calendario
-            </button>
-            <button onClick={() => irA({ pantalla: 'stats' })}>
-              <span className="nav-ic">
-                <span className="icon">monitoring</span>
-              </span>
-              Estadísticas
-            </button>
-          </nav>
-        )}
       </div>
       </GestorAgenda>
      </AgendaCtx.Provider>

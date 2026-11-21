@@ -26,8 +26,8 @@ const PASOS: Paso[] = [
     pantalla: 'lista',
     objetivo: 'totales',
     titulo: 'Totales y filtros rápidos',
-    texto: 'Cuántas órdenes hay En curso, Pte. entrega y Devueltas, y cuántas tienen un plazo a menos de 30 días o ya vencido. Pulsa una tarjeta para ver solo esas; vuelve a pulsarla para quitar el filtro.',
-    textoMovil: 'Cuántas órdenes hay en cada estado y cuántas tienen prisa. Desliza a los lados para ver todas y pulsa una para filtrar.',
+    texto: 'Cuántas órdenes hay En curso, Pte. entrega y Devueltas, y cuántas tienen un plazo a menos de 30 días. Pulsa una tarjeta para ver solo esas; vuelve a pulsarla para quitar el filtro. Las dos últimas (borde discontinuo) abren el Calendario y las Estadísticas.',
+    textoMovil: 'Cuántas órdenes hay en cada estado y cuántas tienen prisa; pulsa una para filtrar. Las de borde discontinuo abren el Calendario y las Estadísticas.',
   },
   {
     pantalla: 'lista',
@@ -59,7 +59,7 @@ const PASOS: Paso[] = [
     pantalla: 'lista',
     objetivo: 'nav-cal',
     titulo: 'Calendario',
-    texto: 'Aquí pasas de las órdenes al calendario. Vamos a verlo.',
+    texto: 'Esta tarjeta abre el calendario (y, estando en él, te devuelve a las órdenes). Vamos a verlo.',
   },
   {
     pantalla: 'calendario',
