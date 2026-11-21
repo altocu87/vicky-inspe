@@ -545,6 +545,8 @@ function Panel({ email }: { email: string }) {
                   <span className="icon">monitoring</span>
                   Estadísticas
                 </button>
+                {!enCal && !verTabla && <SortMenu actual={sortActual} onPick={(id) => setSort(SORTS_MOVIL.find((s) => s.id === id)!.sort)} conTexto />}
+                {!enCal && verTabla && <ColumnasMenu ocultas={ocultas} setOcultas={setOcultas} />}
                 <button className="icon-btn tonal" data-tour="ayuda" onClick={() => setTutorial(true)} aria-label="Cómo funciona (tutorial)" title="Cómo funciona">
                   <span className="icon">help</span>
                 </button>
@@ -579,8 +581,6 @@ function Panel({ email }: { email: string }) {
                 </label>
                 {!enCal && (
                   <>
-                    {!verTabla && <SortMenu actual={sortActual} onPick={(id) => setSort(SORTS_MOVIL.find((s) => s.id === id)!.sort)} conTexto />}
-                    {verTabla && <ColumnasMenu ocultas={ocultas} setOcultas={setOcultas} />}
                     <button className="icon-btn" title="Exportar a Excel (CSV)" aria-label="Exportar a Excel (CSV)" onClick={() => exportarCsv(visibles, ctx, agenda.proximas)}>
                       <span className="icon">download</span>
                     </button>
