@@ -199,3 +199,32 @@ tr.fin .tag { background: var(--sc-high); color: var(--on-surface-variant); }
   .seg button { height: 46px; padding: 0 10px; font-size: 13.5px; }
   .fields, .fields.three, .calc, .subidas { grid-template-columns: 1fr; }
 }
+
+/* ============ Cabecera compacta (escritorio) ============
+   Izquierda: tarjetas de totales + contador. Derecha: dos filas de controles.
+   Se mide el ancho disponible (container query): si no cabe, los controles bajan. */
+.cab-wrap { container-type: inline-size; }
+.cabecera {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px 20px; align-items: start; padding: 16px 0 12px;
+}
+.cabecera .stats { margin: 0; gap: 10px; }
+.cabecera .stat { padding: 12px 14px; gap: 4px; }
+.cabecera .stat .n { font-size: 32px; }
+.cabecera .stat .icon { font-size: 20px; }
+.cabecera .stat .label-l { font-size: 13px; line-height: 16px; }
+.cabecera .count { margin: 8px 0 0 4px; }
+.cab-der { display: flex; flex-direction: column; gap: 8px; align-items: flex-end; }
+.cab-fila { display: flex; align-items: center; gap: 8px; flex-wrap: nowrap; justify-content: flex-end; }
+.cab-fila .stats-btn.btn { margin: 0; }
+.cab-fila .switch-row { white-space: nowrap; flex: none; }
+.search.compacta { height: 44px; flex: 1 1 220px; min-width: 150px; max-width: 260px; padding: 0 4px 0 14px; }
+.search.compacta input { font-size: 14px; }
+@container (max-width: 1350px) {
+  .cabecera { grid-template-columns: minmax(0, 1fr); }
+  /* Todos los controles en una sola línea (salta de línea solo si no caben) */
+  .cab-der { flex-direction: row; flex-wrap: wrap; align-items: center; }
+  .cab-fila { display: contents; }
+  .search.compacta { max-width: none; order: 1; }
+  .cab-fila:last-child > :not(.search) { order: 2; }
+}

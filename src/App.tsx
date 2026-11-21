@@ -11,7 +11,6 @@ import { plazoDe, proximoPlazo, type ContextoPlazos } from './lib/plazos/motor'
 import { combinarReglas, type ReglaFila } from './lib/plazos/reglas'
 import { leerRuta, type Ruta } from './lib/ruta'
 import { irA } from './nav'
-import { ICONO_TEMA, NOMBRE_TEMA, TEMAS, useTema } from './tema'
 import { Login } from './components/Login'
 import { Logo } from './components/Logo'
 import { OrdenCard } from './components/OrdenCard'
@@ -400,186 +399,207 @@ function Panel({ email }: { email: string }) {
      <AgendaCtx.Provider value={agenda}>
       <GestorAgenda ordenes={ordenes} festivos={ctx.festivos} abrirOrden={setEditing} actualizarOrden={actualizarOrden} avisar={avisar}>
       <div className={`app${verTabla && !mobile && !enCal ? ' wide' : ''}${mobile ? ' con-nav' : ''}`}>
-        <header className="topbar">
-          <div className="brand">
-            <Logo size={mobile ? 42 : 48} />
-            <div className="brand-txt">
-              <span className="title-l">Inspecciones</span>
-              <span className="label-m muted">Seguimiento de órdenes</span>
-            </div>
-          </div>
-          {!mobile && (
-            <nav className="seg nav-seg" aria-label="Secciones">
-              <button className={!enCal ? 'on' : ''} aria-current={!enCal ? 'page' : undefined} onClick={() => irA({ pantalla: 'lista' })}>
-                <span className="icon">table_rows</span>
-                Órdenes
-              </button>
-              <button className={enCal ? 'on' : ''} data-tour="nav-cal" aria-current={enCal ? 'page' : undefined} onClick={() => irA({ pantalla: 'calendario' })}>
-                <span className="icon">calendar_month</span>
-                Calendario
-              </button>
-            </nav>
-          )}
-          {!mobile && (
-            <button className="btn tonal stats-btn" onClick={() => irA({ pantalla: 'stats' })}>
-              <span className="icon">monitoring</span>
-              Estadísticas
-            </button>
-          )}
-          <button
-            className={`icon-btn tonal${mobile ? ' stats-btn' : ''}`}
-            data-tour="ayuda"
-            onClick={() => setTutorial(true)}
-            aria-label="Cómo funciona (tutorial)"
-            title="Cómo funciona"
-          >
-            <span className="icon">help</span>
-          </button>
-          <BotonTema />
-          <button className="icon-btn tonal" data-tour="ajustes" onClick={() => irA({ pantalla: 'ajustes' })} aria-label="Ajustes" title="Ajustes">
-            <span className="icon">settings</span>
-          </button>
-          <button className="icon-btn tonal" title={`Cerrar sesión (${email})`} aria-label="Cerrar sesión" onClick={salir}>
-            <span className="icon">logout</span>
-          </button>
-        </header>
-
         {mobile ? (
-          buscando ? (
-            <div className="search-m">
-              <label className="search">
-                <button
-                  className="icon-btn"
-                  aria-label="Cerrar búsqueda"
-                  onClick={() => {
-                    setQ('')
-                    setBuscando(false)
-                  }}
-                >
-                  <span className="icon">arrow_back</span>
-                </button>
-                <span className="sr-only">Buscar</span>
-                <input
-                  autoFocus
-                  value={q}
-                  onChange={(e) => setQ(e.target.value)}
-                  placeholder="Nº, empresa, objeto, tareas…"
-                  type="search"
-                  enterKeyHint="search"
-                />
-                {q && (
-                  <button className="icon-btn" onClick={() => setQ('')} aria-label="Borrar búsqueda">
-                    <span className="icon">close</span>
-                  </button>
-                )}
-              </label>
+          <>
+          <header className="topbar">
+            <div className="brand">
+              <Logo size={42} />
+              <div className="brand-txt">
+                <span className="title-l">Inspecciones</span>
+                <span className="label-m muted">Seguimiento de órdenes</span>
+              </div>
             </div>
-          ) : (
-            <section className="hero-m">
-              <div>
-                <h1 className="display">{enCal ? 'Calendario' : 'Órdenes'}</h1>
-                <p className="body-m muted" style={{ margin: '2px 0 0' }}>
-                  {stats['EN CURSO'] + stats['PTE ENTREGA'] + stats.DEVUELTA} activas · {ordenes.length} en total
-                </p>
-              </div>
-              <div className="hero-actions">
-                <button className="icon-btn tonal" data-tour="buscar" onClick={() => setBuscando(true)} aria-label="Buscar" title="Buscar">
-                  <span className="icon">search</span>
-                </button>
-                <button
-                  className={`icon-btn tonal fin-btn${ocultarFin ? ' on' : ''}`}
-                  onClick={toggleFin}
-                  aria-pressed={ocultarFin}
-                  aria-label={ocultarFin ? 'Mostrar finalizadas' : 'Ocultar finalizadas'}
-                  title={ocultarFin ? 'Finalizadas ocultas' : 'Mostrando finalizadas'}
-                >
-                  <span className="icon">{ocultarFin ? 'visibility_off' : 'visibility'}</span>
-                </button>
-                {!enCal && <SortMenu actual={sortActual} onPick={(id) => setSort(SORTS_MOVIL.find((s) => s.id === id)!.sort)} />}
-              </div>
-            </section>
-          )
-        ) : (
-          <section className="hero">
-            <div>
-              <h1 className="display">{enCal ? 'Calendario' : 'Órdenes'}</h1>
-              <p className="body-m muted" style={{ margin: '6px 0 0' }}>
-                {ordenes.length} en total · {stats['EN CURSO'] + stats['PTE ENTREGA'] + stats.DEVUELTA} activas
-              </p>
-            </div>
-            <label className="search" data-tour="buscar">
-              <span className="icon">search</span>
-              <span className="sr-only">Buscar</span>
-              <input id="buscar" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar nº, empresa, objeto, tareas… ( / )" type="search" enterKeyHint="search" />
-              {q && (
-                <button className="icon-btn" onClick={() => setQ('')} aria-label="Borrar búsqueda">
-                  <span className="icon">close</span>
-                </button>
-              )}
-            </label>
-          </section>
-        )}
-
-        <div className="stats" data-tour="totales">
-          {statCards.map((s) => (
-            <button
-              key={s.k}
-              className={`stat ${s.cls ?? ''}${filtro === s.k ? ' active' : ''}`}
-              onClick={() => elegirFiltro(s.k)}
-              aria-pressed={filtro === s.k}
-            >
-              <div className="row">
-                <span className="n">{s.n}</span>
-                <span className="icon fill">{s.icon}</span>
-              </div>
-              <span className="label-l">{s.label}</span>
+            <button className="icon-btn tonal stats-btn" data-tour="ayuda" onClick={() => setTutorial(true)} aria-label="Cómo funciona (tutorial)" title="Cómo funciona">
+              <span className="icon">help</span>
             </button>
-          ))}
-        </div>
-
-        {!mobile && (
-          <div className="toolbar">
-            <label className="switch-row">
-              <span className="label-l">Ocultar finalizadas</span>
-              <span className="switch">
-                <input type="checkbox" role="switch" checked={ocultarFin} onChange={toggleFin} />
-                <span className="track">
-                  <span className="thumb">
-                    <span className="icon">{ocultarFin ? 'check' : 'close'}</span>
-                  </span>
-                </span>
-              </span>
-            </label>
-
-            {!enCal && (
-              <div className="toolbar-end">
-                {!verTabla && <SortMenu actual={sortActual} onPick={(id) => setSort(SORTS_MOVIL.find((s) => s.id === id)!.sort)} conTexto />}
-                {verTabla && <ColumnasMenu ocultas={ocultas} setOcultas={setOcultas} />}
-                <button className="icon-btn" title="Exportar a Excel (CSV)" aria-label="Exportar a Excel (CSV)" onClick={() => exportarCsv(visibles, ctx, agenda.proximas)}>
-                  <span className="icon">download</span>
-                </button>
-                <div className="seg mini" role="radiogroup" aria-label="Vista">
-                  <button role="radio" aria-checked={verTabla} className={verTabla ? 'on' : ''} onClick={() => setVista('tabla')} title="Tabla">
-                    <span className="icon">table_rows</span>
-                    <span className="sr-only">Tabla</span>
-                  </button>
-                  <button role="radio" aria-checked={!verTabla} className={!verTabla ? 'on' : ''} onClick={() => setVista('tarjetas')} title="Tarjetas">
-                    <span className="icon">grid_view</span>
-                    <span className="sr-only">Tarjetas</span>
-                  </button>
+            <button className="icon-btn tonal" data-tour="ajustes" onClick={() => irA({ pantalla: 'ajustes' })} aria-label="Ajustes" title="Ajustes">
+              <span className="icon">settings</span>
+            </button>
+            <button className="icon-btn tonal" title={`Cerrar sesión (${email})`} aria-label="Cerrar sesión" onClick={salir}>
+              <span className="icon">logout</span>
+            </button>
+          </header>
+            {buscando ? (
+                <div className="search-m">
+                  <label className="search">
+                    <button
+                      className="icon-btn"
+                      aria-label="Cerrar búsqueda"
+                      onClick={() => {
+                        setQ('')
+                        setBuscando(false)
+                      }}
+                    >
+                      <span className="icon">arrow_back</span>
+                    </button>
+                    <span className="sr-only">Buscar</span>
+                    <input
+                      autoFocus
+                      value={q}
+                      onChange={(e) => setQ(e.target.value)}
+                      placeholder="Nº, empresa, objeto, tareas…"
+                      type="search"
+                      enterKeyHint="search"
+                    />
+                    {q && (
+                      <button className="icon-btn" onClick={() => setQ('')} aria-label="Borrar búsqueda">
+                        <span className="icon">close</span>
+                      </button>
+                    )}
+                  </label>
                 </div>
-              </div>
+              ) : (
+                <section className="hero-m">
+                  <div>
+                    <h1 className="display">{enCal ? 'Calendario' : 'Órdenes'}</h1>
+                    <p className="body-m muted" style={{ margin: '2px 0 0' }}>
+                      {stats['EN CURSO'] + stats['PTE ENTREGA'] + stats.DEVUELTA} activas · {ordenes.length} en total
+                    </p>
+                  </div>
+                  <div className="hero-actions">
+                    <button className="icon-btn tonal" data-tour="buscar" onClick={() => setBuscando(true)} aria-label="Buscar" title="Buscar">
+                      <span className="icon">search</span>
+                    </button>
+                    <button
+                      className={`icon-btn tonal fin-btn${ocultarFin ? ' on' : ''}`}
+                      onClick={toggleFin}
+                      aria-pressed={ocultarFin}
+                      aria-label={ocultarFin ? 'Mostrar finalizadas' : 'Ocultar finalizadas'}
+                      title={ocultarFin ? 'Finalizadas ocultas' : 'Mostrando finalizadas'}
+                    >
+                      <span className="icon">{ocultarFin ? 'visibility_off' : 'visibility'}</span>
+                    </button>
+                    {!enCal && <SortMenu actual={sortActual} onPick={(id) => setSort(SORTS_MOVIL.find((s) => s.id === id)!.sort)} />}
+                  </div>
+                </section>
+              )}
+            <div className="stats" data-tour="totales">
+              {statCards.map((s) => (
+                <button
+                  key={s.k}
+                  className={`stat ${s.cls ?? ''}${filtro === s.k ? ' active' : ''}`}
+                  onClick={() => elegirFiltro(s.k)}
+                  aria-pressed={filtro === s.k}
+                >
+                  <div className="row">
+                    <span className="n">{s.n}</span>
+                    <span className="icon fill">{s.icon}</span>
+                  </div>
+                  <span className="label-l">{s.label}</span>
+                </button>
+              ))}
+            </div>
+            {!enCal && !loading && visibles.length > 0 && (
+              <p className="count label-l muted">
+                {visibles.length} {visibles.length === 1 ? 'orden' : 'órdenes'}
+                {filtro !== 'todos' && ` · ${nombreFiltro(filtro)}`}
+                {ocultarFin && ' · sin finalizadas'}
+                {q && ` · «${q}»`}
+              </p>
             )}
+          </>
+        ) : (
+          /* Escritorio: tarjetas de totales a la izquierda y, a la derecha, dos filas
+             (navegación + botones arriba; buscador, filtros y vista abajo). */
+          <div className="cab-wrap">
+          <div className="cabecera">
+            <div className="cab-izq">
+            <div className="stats" data-tour="totales">
+              {statCards.map((s) => (
+                <button
+                  key={s.k}
+                  className={`stat ${s.cls ?? ''}${filtro === s.k ? ' active' : ''}`}
+                  onClick={() => elegirFiltro(s.k)}
+                  aria-pressed={filtro === s.k}
+                >
+                  <div className="row">
+                    <span className="n">{s.n}</span>
+                    <span className="icon fill">{s.icon}</span>
+                  </div>
+                  <span className="label-l">{s.label}</span>
+                </button>
+              ))}
+            </div>
+            {!enCal && !loading && visibles.length > 0 && (
+              <p className="count label-l muted">
+                {visibles.length} {visibles.length === 1 ? 'orden' : 'órdenes'}
+                {filtro !== 'todos' && ` · ${nombreFiltro(filtro)}`}
+                {ocultarFin && ' · sin finalizadas'}
+                {q && ` · «${q}»`}
+              </p>
+            )}
+            </div>
+            <div className="cab-der">
+              <div className="cab-fila">
+                <nav className="seg nav-seg" aria-label="Secciones">
+                  <button className={!enCal ? 'on' : ''} aria-current={!enCal ? 'page' : undefined} onClick={() => irA({ pantalla: 'lista' })}>
+                    <span className="icon">table_rows</span>
+                    Órdenes
+                  </button>
+                  <button className={enCal ? 'on' : ''} data-tour="nav-cal" aria-current={enCal ? 'page' : undefined} onClick={() => irA({ pantalla: 'calendario' })}>
+                    <span className="icon">calendar_month</span>
+                    Calendario
+                  </button>
+                </nav>
+                <button className="btn tonal stats-btn" onClick={() => irA({ pantalla: 'stats' })}>
+                  <span className="icon">monitoring</span>
+                  Estadísticas
+                </button>
+                <button className="icon-btn tonal" data-tour="ayuda" onClick={() => setTutorial(true)} aria-label="Cómo funciona (tutorial)" title="Cómo funciona">
+                  <span className="icon">help</span>
+                </button>
+                <button className="icon-btn tonal" data-tour="ajustes" onClick={() => irA({ pantalla: 'ajustes' })} aria-label="Ajustes" title="Ajustes">
+                  <span className="icon">settings</span>
+                </button>
+                <button className="icon-btn tonal" title={`Cerrar sesión (${email})`} aria-label="Cerrar sesión" onClick={salir}>
+                  <span className="icon">logout</span>
+                </button>
+              </div>
+              <div className="cab-fila">
+                <label className="search compacta" data-tour="buscar">
+                  <span className="icon">search</span>
+                  <span className="sr-only">Buscar</span>
+                  <input id="buscar" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar… ( / )" title="Buscar nº, empresa, objeto, tareas…" type="search" enterKeyHint="search" />
+                  {q && (
+                    <button className="icon-btn" onClick={() => setQ('')} aria-label="Borrar búsqueda">
+                      <span className="icon">close</span>
+                    </button>
+                  )}
+                </label>
+                <label className="switch-row">
+                  <span className="label-l">Ocultar finalizadas</span>
+                  <span className="switch">
+                    <input type="checkbox" role="switch" checked={ocultarFin} onChange={toggleFin} />
+                    <span className="track">
+                      <span className="thumb">
+                        <span className="icon">{ocultarFin ? 'check' : 'close'}</span>
+                      </span>
+                    </span>
+                  </span>
+                </label>
+                {!enCal && (
+                  <>
+                    {!verTabla && <SortMenu actual={sortActual} onPick={(id) => setSort(SORTS_MOVIL.find((s) => s.id === id)!.sort)} conTexto />}
+                    {verTabla && <ColumnasMenu ocultas={ocultas} setOcultas={setOcultas} />}
+                    <button className="icon-btn" title="Exportar a Excel (CSV)" aria-label="Exportar a Excel (CSV)" onClick={() => exportarCsv(visibles, ctx, agenda.proximas)}>
+                      <span className="icon">download</span>
+                    </button>
+                    <div className="seg mini" role="radiogroup" aria-label="Vista">
+                      <button role="radio" aria-checked={verTabla} className={verTabla ? 'on' : ''} onClick={() => setVista('tabla')} title="Tabla">
+                        <span className="icon">table_rows</span>
+                        <span className="sr-only">Tabla</span>
+                      </button>
+                      <button role="radio" aria-checked={!verTabla} className={!verTabla ? 'on' : ''} onClick={() => setVista('tarjetas')} title="Tarjetas">
+                        <span className="icon">grid_view</span>
+                        <span className="sr-only">Tarjetas</span>
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
           </div>
-        )}
-
-        {!enCal && !loading && visibles.length > 0 && (
-          <p className="count label-l muted">
-            {visibles.length} {visibles.length === 1 ? 'orden' : 'órdenes'}
-            {filtro !== 'todos' && ` · ${nombreFiltro(filtro)}`}
-            {ocultarFin && ' · sin finalizadas'}
-            {q && ` · «${q}»`}
-          </p>
+          </div>
         )}
 
         {loading ? (
@@ -706,21 +726,5 @@ function SnackBar({ snack, cerrar }: { snack: Snack; cerrar: () => void }) {
         </button>
       )}
     </div>
-  )
-}
-
-/** Botón de la barra superior: cambia entre automático, claro y oscuro */
-function BotonTema() {
-  const [tema, setTema] = useTema()
-  const siguiente = TEMAS[(TEMAS.indexOf(tema) + 1) % TEMAS.length]
-  return (
-    <button
-      className="icon-btn tonal"
-      onClick={() => setTema(siguiente)}
-      aria-label={`Tema: ${NOMBRE_TEMA[tema]}. Cambiar a ${NOMBRE_TEMA[siguiente]}`}
-      title={`Tema: ${NOMBRE_TEMA[tema]} (pulsa para ${NOMBRE_TEMA[siguiente].toLowerCase()})`}
-    >
-      <span className="icon">{ICONO_TEMA[tema]}</span>
-    </button>
   )
 }
