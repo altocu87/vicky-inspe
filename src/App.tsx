@@ -14,6 +14,7 @@ import { irA } from './nav'
 import { Login } from './components/Login'
 import { Logo } from './components/Logo'
 import { OrdenCard } from './components/OrdenCard'
+import { FichasOrdenes } from './components/FichasOrdenes'
 import { Estadisticas } from './components/Estadisticas'
 import { OrdenForm } from './components/OrdenForm'
 import { ConfirmDelete } from './components/ConfirmDelete'
@@ -28,14 +29,17 @@ import { textoHora } from './lib/eventos'
 // El calendario (y la librería de repeticiones) se descarga solo al abrirlo
 const Calendario = lazy(() => import('./components/calendario/Calendario').then((m) => ({ default: m.Calendario })))
 
-type Vista = 'tabla' | 'tarjetas'
+type Vista = 'fichas' | 'tabla' | 'tarjetas'
 type Snack = { msg: string; err?: boolean; action?: { label: string; fn: () => void } }
 
 const SORTS_MOVIL: { id: string; label: string; sort: Sort }[] = [
   { id: 'rec', label: 'Más recientes', sort: { key: 'fecha_orden', dir: 'desc' } },
   { id: 'urg', label: 'Más urgentes', sort: { key: 'urgencia', dir: 'asc' } },
+  { id: 'prox', label: 'Próximo plazo', sort: { key: 'prox', dir: 'asc' } },
+  { id: 'vis', label: 'Próxima visita', sort: { key: 'visita_prox', dir: 'asc' } },
   { id: 'ant', label: 'Más antiguas', sort: { key: 'fecha_orden', dir: 'asc' } },
   { id: 'emp', label: 'Empresa (A-Z)', sort: { key: 'empresa', dir: 'asc' } },
+  { id: 'num', label: 'Nº orden', sort: { key: 'num_orden', dir: 'asc' } },
 ]
 
 function valorOrden(o: Orden, k: SortKey, ctx: ContextoPlazos, prox: ReadonlyMap<string, Evento>): string | number | null {
@@ -179,7 +183,7 @@ function Panel({ email }: { email: string }) {
   const [q, setQ] = useState('')
   const [filtro, setFiltro] = useState<Filtro>('todos')
   const [ocultarFin, setOcultarFin] = usePref('ocultarFin', true)
-  const [vista, setVista] = usePref<Vista>('vista', 'tabla')
+  const [vista, setVista] = usePref<Vista>('vista2', 'fichas')
   const [sort, setSort] = usePref<Sort>('sort', { key: 'fecha_orden', dir: 'desc' })
   const [ocultas, setOcultas] = usePref<SortKey[]>('ocultas', OCULTAS_DEF)
   const [editing, setEditing] = useState<Orden | 'new' | null>(null)
@@ -364,6 +368,7 @@ function Panel({ email }: { email: string }) {
 
   const sortActual = SORTS_MOVIL.find((s) => s.sort.key === sort.key && s.sort.dir === sort.dir)?.id ?? ''
   const verTabla = vista === 'tabla'
+  const verFichas = vista === 'fichas'
   const enCal = pantalla === 'calendario'
   const salir = async () => (await api()).salir()
 
@@ -398,7 +403,7 @@ function Panel({ email }: { email: string }) {
     <PlazosCtx.Provider value={ctx}>
      <AgendaCtx.Provider value={agenda}>
       <GestorAgenda ordenes={ordenes} festivos={ctx.festivos} abrirOrden={setEditing} actualizarOrden={actualizarOrden} avisar={avisar}>
-      <div className={`app${verTabla && !mobile && !enCal ? ' wide' : ''}${mobile ? ' con-nav' : ''}`}>
+      <div className={`app${(verTabla || verFichas) && !mobile && !enCal ? ' wide' : ''}${mobile ? ' con-nav' : ''}`}>
         {mobile ? (
           <>
           <header className="topbar">
@@ -585,11 +590,15 @@ function Panel({ email }: { email: string }) {
                       <span className="icon">download</span>
                     </button>
                     <div className="seg mini" role="radiogroup" aria-label="Vista">
+                      <button role="radio" aria-checked={verFichas} className={verFichas ? 'on' : ''} onClick={() => setVista('fichas')} title="Fichas">
+                        <span className="icon">view_agenda</span>
+                        <span className="sr-only">Fichas</span>
+                      </button>
                       <button role="radio" aria-checked={verTabla} className={verTabla ? 'on' : ''} onClick={() => setVista('tabla')} title="Tabla">
                         <span className="icon">table_rows</span>
                         <span className="sr-only">Tabla</span>
                       </button>
-                      <button role="radio" aria-checked={!verTabla} className={!verTabla ? 'on' : ''} onClick={() => setVista('tarjetas')} title="Tarjetas">
+                      <button role="radio" aria-checked={vista === 'tarjetas'} className={vista === 'tarjetas' ? 'on' : ''} onClick={() => setVista('tarjetas')} title="Tarjetas">
                         <span className="icon">grid_view</span>
                         <span className="sr-only">Tarjetas</span>
                       </button>
@@ -640,6 +649,8 @@ function Panel({ email }: { email: string }) {
           </div>
         ) : mobile ? (
           <ListaMovil ordenes={visibles} onOpen={setEditing} />
+        ) : verFichas ? (
+          <FichasOrdenes ordenes={visibles} onOpen={setEditing} />
         ) : verTabla ? (
           <TablaOrdenes ordenes={visibles} sort={sort} setSort={setSort} ocultas={ocultas} onOpen={setEditing} />
         ) : (
