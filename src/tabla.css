@@ -201,7 +201,7 @@ tr.fin .tag { background: var(--sc-high); color: var(--on-surface-variant); }
 }
 
 /* ============ Cabecera compacta (escritorio) ============
-   Izquierda: tarjetas de totales + contador. Derecha: dos filas de controles.
+   Izquierda: tarjetas (totales + accesos). Derecha: buscador y botones; debajo, finalizadas y exportar.
    Se mide el ancho disponible (container query): si no cabe, los controles bajan. */
 .cab-wrap {
   container-type: inline-size;
@@ -212,24 +212,46 @@ tr.fin .tag { background: var(--sc-high); color: var(--on-surface-variant); }
   display: grid; grid-template-columns: minmax(0, 1fr) auto;
   gap: 10px 16px; align-items: start; padding: 12px 0 10px;
 }
-.cabecera .stats { margin: 0; gap: 10px; }
+.cabecera .stats { margin: 0; gap: 10px; grid-template-columns: repeat(6, minmax(0, 1fr)); }
 .cabecera .stat { padding: 10px 14px; gap: 4px; }
 .cabecera .stat .n { font-size: 32px; }
 .cabecera .stat .icon { font-size: 20px; }
 .cabecera .stat .label-l { font-size: 13px; line-height: 16px; }
 .cabecera .count { margin: 4px 0 0 4px; }
-.cab-der { display: flex; flex-direction: column; gap: 8px; align-items: flex-end; }
+.cab-der { display: flex; flex-direction: column; gap: 8px; width: 440px; }
 .cab-fila { display: flex; align-items: center; gap: 8px; flex-wrap: nowrap; justify-content: flex-end; }
-.cab-fila .stats-btn.btn { margin: 0; }
 .cab-fila .switch-row { white-space: nowrap; flex: none; }
 .search.compacta { height: 44px; flex: 1 1 auto; min-width: 150px; max-width: none; padding: 0 4px 0 14px; }
-.cab-fila:last-child { align-self: stretch; }
 .search.compacta input { font-size: 14px; }
-@container (max-width: 1350px) {
+@container (max-width: 1300px) {
   .cabecera { grid-template-columns: minmax(0, 1fr); }
   /* Todos los controles en una sola línea (salta de línea solo si no caben) */
-  .cab-der { flex-direction: row; flex-wrap: wrap; align-items: center; }
+  .cab-der { width: auto; flex-direction: row; flex-wrap: wrap; align-items: center; }
   .cab-fila { display: contents; }
-  .search.compacta { flex: 1 1 0; max-width: none; min-width: 100px; order: 1; }
-  .cab-fila:last-child > :not(.search) { order: 2; }
+  .search.compacta { flex: 1 1 0; min-width: 100px; }
+}
+
+/* Tarjetas de acceso (Calendario, Estadísticas): distintas a las de totales,
+   con borde discontinuo e icono grande centrado. Si estás en esa pantalla, se rellenan
+   y sirven para volver a Órdenes. */
+.stat.s-acceso {
+  align-items: center; justify-content: center; text-align: center; gap: 2px;
+  background: var(--surface); color: var(--primary);
+  border: 2px dashed var(--primary);
+}
+.stat.s-acceso .icon { font-size: 34px; }
+.stat.s-acceso:hover { background: var(--primary-container); color: var(--on-primary-container); }
+.stat.s-acceso.active { background: var(--primary); color: var(--on-primary); border-style: solid; }
+
+/* Móvil: las 6 tarjetas en 2 filas de 3, todas a la vista (sin deslizar) */
+@media (max-width: 720px) {
+  .stats.tarjetas-top {
+    display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+    overflow: visible; margin: 10px 0 4px; padding: 0; gap: 8px;
+  }
+  .tarjetas-top .stat { min-width: 0; padding: 10px 12px; gap: 2px; border-radius: 18px; }
+  .tarjetas-top .stat .n { font-size: 26px; }
+  .tarjetas-top .stat .row .icon { display: none; }
+  .tarjetas-top .stat .label-l { font-size: 12px; line-height: 15px; }
+  .tarjetas-top .stat.s-acceso .icon { font-size: 26px; }
 }

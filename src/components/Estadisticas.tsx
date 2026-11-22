@@ -95,7 +95,7 @@ function Barras({ datos, color, unidad, titulo, vacio }: { datos: Punto[]; color
   )
 }
 
-export function Estadisticas({ ordenes, onBack }: { ordenes: Orden[]; onBack: () => void }) {
+export function Estadisticas({ ordenes }: { ordenes: Orden[] }) {
   const anios = useMemo(() => {
     const s = new Set<string>()
     ordenes.forEach((o) => {
@@ -144,17 +144,6 @@ export function Estadisticas({ ordenes, onBack }: { ordenes: Orden[]; onBack: ()
 
   return (
     <div className="stats-page">
-      <header className="sp-head">
-        <button className="icon-btn tonal" onClick={onBack} aria-label="Volver a las órdenes">
-          <span className="icon">arrow_back</span>
-        </button>
-        <div>
-          <h1 className="display sm">Estadísticas</h1>
-          <p className="body-m muted" style={{ margin: 0 }}>
-            Totales por año y tiempo medio de cierre
-          </p>
-        </div>
-      </header>
 
       <div className="chips year-chips" role="radiogroup" aria-label="Año">
         {anios.map((y) => (
