@@ -384,7 +384,7 @@ export function ListaMovil({ ordenes, onOpen }: { ordenes: Orden[]; onOpen: (o: 
 }
 
 /** Plazos de reglas añadidas en Ajustes (las dos del Excel ya se muestran aparte) */
-function proximoOtros(o: Orden, ctx: ContextoPlazos): PlazoCalc[] {
+export function proximoOtros(o: Orden, ctx: ContextoPlazos): PlazoCalc[] {
   return ctx.reglas
     .filter((r) => r.id !== 'lim9' && r.id !== 'sig' && r.activa)
     .map((r) => plazoDe(o, r.id, ctx))

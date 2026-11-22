@@ -18,7 +18,8 @@ import { OrdenForm } from './components/OrdenForm'
 import { ConfirmDelete } from './components/ConfirmDelete'
 import { Ajustes } from './components/Ajustes'
 import { Tutorial } from './components/Tutorial'
-import { COLUMNAS, ListaMovil, OCULTAS_DEF, TablaOrdenes, type Sort, type SortKey } from './components/TablaOrdenes'
+import { COLUMNAS, ListaMovil, type Sort, type SortKey } from './components/TablaOrdenes'
+import { FichasOrdenes } from './components/FichasOrdenes'
 import { GestorAgenda } from './components/agenda/Gestor'
 import { AgendaCtx, useAgendaEstado } from './state/agenda'
 import type { Evento } from './lib/eventos'
@@ -32,8 +33,11 @@ type Snack = { msg: string; err?: boolean; action?: { label: string; fn: () => v
 const SORTS_MOVIL: { id: string; label: string; sort: Sort }[] = [
   { id: 'rec', label: 'Más recientes', sort: { key: 'fecha_orden', dir: 'desc' } },
   { id: 'urg', label: 'Más urgentes', sort: { key: 'urgencia', dir: 'asc' } },
+  { id: 'prox', label: 'Próximo plazo', sort: { key: 'prox', dir: 'asc' } },
+  { id: 'vis', label: 'Próxima visita', sort: { key: 'visita_prox', dir: 'asc' } },
   { id: 'ant', label: 'Más antiguas', sort: { key: 'fecha_orden', dir: 'asc' } },
   { id: 'emp', label: 'Empresa (A-Z)', sort: { key: 'empresa', dir: 'asc' } },
+  { id: 'num', label: 'Nº orden', sort: { key: 'num_orden', dir: 'asc' } },
 ]
 
 function valorOrden(o: Orden, k: SortKey, ctx: ContextoPlazos, prox: ReadonlyMap<string, Evento>): string | number | null {
@@ -178,8 +182,6 @@ function Panel({ email }: { email: string }) {
   const [filtro, setFiltro] = useState<Filtro>('todos')
   const [ocultarFin, setOcultarFin] = usePref('ocultarFin', true)
   const [sort, setSort] = usePref<Sort>('sort', { key: 'fecha_orden', dir: 'desc' })
-  // Columnas fijas: ya no se eligen desde la cabecera
-  const ocultas: SortKey[] = OCULTAS_DEF
   const [editing, setEditing] = useState<Orden | 'new' | null>(null)
   const [deleting, setDeleting] = useState<Orden | null>(null)
   const [snack, setSnack] = useState<Snack | null>(null)
@@ -573,6 +575,7 @@ function Panel({ email }: { email: string }) {
                         </span>
                       </span>
                     </label>
+                    {enLista && <SortMenu actual={sortActual} onPick={(id) => setSort(SORTS_MOVIL.find((s) => s.id === id)!.sort)} conTexto />}
                     {enLista && (
                       <button className="icon-btn" title="Exportar a Excel (CSV)" aria-label="Exportar a Excel (CSV)" onClick={() => exportarCsv(visibles, ctx, agenda.proximas)}>
                         <span className="icon">download</span>
@@ -625,7 +628,7 @@ function Panel({ email }: { email: string }) {
         ) : mobile ? (
           <ListaMovil ordenes={visibles} onOpen={setEditing} />
         ) : (
-          <TablaOrdenes ordenes={visibles} sort={sort} setSort={setSort} ocultas={ocultas} onOpen={setEditing} />
+          <FichasOrdenes ordenes={visibles} onOpen={setEditing} />
         )}
 
         {enLista && (
