@@ -52,6 +52,7 @@ Para probar las pantallas sin datos reales: `VITE_DEMO=1 npm run dev` (datos inv
 ## Seguridad
 
 - Supabase: todas las tablas con RLS; solo usuarios con sesión; nada para `anon`. Registro público desactivado.
+- ⚠️ **Antes de dar de alta a otra persona** (aunque sea una cuenta de prueba): hoy las políticas dejan ver y cambiar todo a *cualquier* usuario con sesión (`using (true)`). Es seguro solo porque hay una única cuenta. Antes de crear otra, aplicar la lista de usuarios autorizados de [`docs/propuestas-bd/bajos-16-30.sql`](docs/propuestas-bd/bajos-16-30.sql) (punto 29).
 - Toda lectura/escritura pasa por `src/data/api.ts` (web) y `src/data/supabaseDatos.ts` (la misma capa, también para el servidor MCP); lo que llega de la base de datos o de la URL se valida antes de usarse.
 - Vercel (`vercel.json`): cabeceras de seguridad (CSP estricta, sin marcos, HSTS, `no-referrer`…). `npm run preview` aplica las mismas (`seguridad.headers.json`); una prueba comprueba que coinciden.
 - El CSV exportado neutraliza fórmulas (evita la «inyección CSV» al abrirlo en Excel).

@@ -16,3 +16,52 @@
 --   Panel de Supabase → Authentication → Sessions (o «JWT Settings») → «JWT expiry» = 900
 -- Efecto: al quitar el acceso a ChatGPT en Ajustes, su token deja de valer contra la API
 -- como mucho en 15 minutos (antes, hasta 1 hora). La web renueva el token sola; no se nota.
+
+
+-- -------------------------------------------------------------------------------------
+-- Punto 29 · RLS por usuario autorizado
+-- ⚠️ SOLO ANTES DE DAR DE ALTA A OTRA PERSONA. Hoy hay una sola usuaria y no hace falta.
+-- -------------------------------------------------------------------------------------
+-- Ahora mismo las políticas dicen `using (true)` para cualquier usuario con sesión
+-- (`authenticated`). Como el registro público está desactivado y solo existe una cuenta,
+-- es seguro. Pero si algún día se crea otra cuenta (aunque sea de prueba), esa persona
+-- vería y podría cambiar TODO. Antes de eso, aplicar esto:
+
+-- 1) Lista de cuentas que pueden usar la app
+create table if not exists public.usuarios_autorizados (
+  id uuid primary key references auth.users(id) on delete cascade,
+  nota text,
+  created_at timestamptz not null default now()
+);
+alter table public.usuarios_autorizados enable row level security;
+-- Cada cuenta solo puede ver si ella misma está en la lista; nadie la cambia desde la app
+drop policy if exists "Ver la propia fila" on public.usuarios_autorizados;
+create policy "Ver la propia fila" on public.usuarios_autorizados
+  for select to authenticated using (id = (select auth.uid()));
+revoke all on public.usuarios_autorizados from anon;
+revoke insert, update, delete, truncate on public.usuarios_autorizados from authenticated;
+
+-- 2) Dar de alta a la usuaria actual (cambiar el correo por el suyo real antes de ejecutar)
+-- insert into public.usuarios_autorizados (id, nota)
+--   select id, 'Titular' from auth.users where email = 'CORREO_DE_LA_USUARIA'
+--   on conflict (id) do nothing;
+
+-- 3) Política RESTRICTIVA en cada tabla: se suma (con «y») a las que ya hay, así que
+--    no hace falta tocar las existentes. Sin estar en la lista, no se ve ni se cambia nada.
+--    (También afecta a ChatGPT: entra con el mismo usuario, así que sigue funcionando.)
+do $$
+declare t text;
+begin
+  foreach t in array array['ordenes', 'festivos', 'reglas_plazo', 'tipos_cita', 'eventos', 'tareas', 'historial_ordenes'] loop
+    execute format('drop policy if exists "Solo usuarios autorizados" on public.%I', t);
+    execute format(
+      'create policy "Solo usuarios autorizados" on public.%I as restrictive for all to authenticated '
+      || 'using (exists (select 1 from public.usuarios_autorizados u where u.id = (select auth.uid()))) '
+      || 'with check (exists (select 1 from public.usuarios_autorizados u where u.id = (select auth.uid())))',
+      t);
+  end loop;
+end $$;
+
+-- Comprobación después de aplicarlo: con la sesión de la usuaria, la app debe ver sus órdenes;
+-- con otra cuenta que no esté en la lista, la app debe salir vacía.
+
