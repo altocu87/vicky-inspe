@@ -65,3 +65,35 @@ end $$;
 -- Comprobación después de aplicarlo: con la sesión de la usuaria, la app debe ver sus órdenes;
 -- con otra cuenta que no esté en la lista, la app debe salir vacía.
 
+
+-- -------------------------------------------------------------------------------------
+-- Punto 30 · Quitar permisos que sobran
+-- -------------------------------------------------------------------------------------
+-- Supabase da por defecto a `authenticated` permisos que la app nunca usa:
+--   TRUNCATE (vaciar una tabla entera de golpe, y además se salta RLS),
+--   TRIGGER (crear disparadores) y REFERENCES (crear claves ajenas hacia la tabla).
+-- Se quitan en todas las tablas de la app. Lo que la app sí usa (select, insert, update,
+-- delete) sigue igual y lo siguen controlando las políticas RLS.
+-- Revisadas las migraciones: además de las 6 tablas de la propuesta original está
+-- `historial_ordenes` (fase «devuelta + historial»), que ya tiene quitado truncate pero no
+-- trigger ni references. La vista `ordenes_calc` se borró en una migración posterior.
+-- El servidor MCP no crea tablas propias (solo políticas).
+revoke truncate, trigger, references on
+  public.ordenes,
+  public.festivos,
+  public.reglas_plazo,
+  public.tipos_cita,
+  public.eventos,
+  public.tareas,
+  public.historial_ordenes
+from authenticated;
+
+-- Tablas que se creen en el futuro en `public`: que `anon` (sin sesión) no reciba nada
+-- por defecto. (Las migraciones ya hacen `revoke all ... from anon` tabla a tabla; esto
+-- evita olvidos.) Se aplica a las tablas que cree el rol que ejecute esto (normalmente `postgres`).
+alter default privileges in schema public revoke all on tables from anon;
+-- Opcional, por coherencia: tampoco funciones ni secuencias nuevas para `anon`
+-- alter default privileges in schema public revoke all on functions from anon;
+-- alter default privileges in schema public revoke all on sequences from anon;
+
+-- Si se aplica también el punto 29, añadir `public.usuarios_autorizados` a la lista del revoke.
