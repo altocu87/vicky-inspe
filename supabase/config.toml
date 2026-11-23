@@ -15,6 +15,7 @@ schemas = ["public", "graphql_public"]
 extra_search_path = ["public", "extensions"]
 # The maximum number of rows returns from a view, table, or stored procedure. Limits payload size
 # for accidental or malicious requests.
+# La web pide por tandas de 1000 con .range() (src/data/supabaseDatos.ts, PAGINA): si se cambia aquí o en el panel, cambiar también PAGINA.
 max_rows = 1000
 
 [api.tls]

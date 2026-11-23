@@ -3,7 +3,7 @@
 // - El servidor MCP para ChatGPT lo usa con un cliente que lleva el permiso OAuth de la usuaria (RLS igual).
 // No importa nada del navegador ni de Vite, para poder empaquetarlo en la función de Supabase.
 import type { OAuthAuthorizationDetails, SupabaseClient } from '@supabase/supabase-js'
-import type { Orden } from '../lib/ordenes'
+import { COLS_ORDEN, leerOrden, type Orden } from '../lib/ordenes'
 import type { Festivo } from '../lib/habiles'
 import type { ReglaFila } from '../lib/plazos/reglas'
 import { CAMPOS_EVENTO, RE_UUID, leerEvento, leerTipo, soloCampos, type Evento, type TipoCita } from '../lib/eventos'
@@ -34,6 +34,39 @@ const unaTarea = (d: unknown): Resultado<Tarea> => {
   const t = leerTarea(d)
   return t ? ok(t) : { data: null, error: 'Respuesta no válida' }
 }
+const ordenes = (d: unknown[] | null): Orden[] => {
+  const lista = (d ?? []).map(leerOrden).filter((o): o is Orden => !!o)
+  if (d && lista.length < d.length) console.warn(`Se han descartado ${d.length - lista.length} órdenes con datos no válidos`)
+  return lista
+}
+const unaOrden = (d: unknown): Resultado<Orden> => {
+  const o = leerOrden(d)
+  return o ? ok(o) : { data: null, error: 'Respuesta no válida' }
+}
+
+/** Filas por petición: el máximo que devuelve Supabase (max_rows = 1000 en config.toml y en el proyecto) */
+export const PAGINA = 1000
+
+/**
+ * Pide una consulta por tandas de PAGINA filas (con .range) hasta recibir menos de una tanda.
+ * `consulta(desde, hasta)` debe crear la consulta CADA vez y llevar un orden estable (p. ej. por id).
+ * `tope` = máximo de filas por seguridad (si se llega, se avisa en la consola).
+ */
+export async function todasLasFilas(
+  consulta: (desde: number, hasta: number) => PromiseLike<{ data: unknown[] | null; error: { message?: string; code?: string } | null }>,
+  tope: number,
+): Promise<{ data: unknown[]; error: null } | { data: null; error: { message?: string; code?: string } }> {
+  const filas: unknown[] = []
+  for (let desde = 0; desde < tope; desde += PAGINA) {
+    const { data, error } = await consulta(desde, Math.min(desde + PAGINA, tope) - 1)
+    if (error) return { data: null, error }
+    filas.push(...(data ?? []))
+    if ((data ?? []).length < PAGINA) return { data: filas, error: null }
+  }
+  console.warn(`Consulta cortada en ${tope} filas (tope de seguridad)`)
+  return { data: filas, error: null }
+}
+
 /** Solo fechas válidas en los filtros (se construyen como texto) */
 function fechas(...f: string[]) {
   if (!f.every(esIso)) throw new Error('Fecha no válida')
@@ -62,16 +95,20 @@ export function crearBackendSupabase(supabase: SupabaseClient): Backend {
     },
 
     async listarOrdenes() {
-      const { data, error } = await supabase.from('ordenes').select('*').order('fecha_orden', { ascending: false })
-      return error ? ko(error) : ok(data as Orden[])
+      // Por tandas de 1000 (Supabase no devuelve más de una vez): antes, a partir de 1000 órdenes faltaban
+      const { data, error } = await todasLasFilas(
+        (desde, hasta) => supabase.from('ordenes').select(COLS_ORDEN).order('fecha_orden', { ascending: false, nullsFirst: false }).order('id').range(desde, hasta),
+        50_000,
+      )
+      return error ? ko(error) : ok(ordenes(data))
     },
     async crearOrden(payload) {
-      const { data, error } = await supabase.from('ordenes').insert(payload).select().single()
-      return error ? ko(error) : ok(data as Orden)
+      const { data, error } = await supabase.from('ordenes').insert(payload).select(COLS_ORDEN).single()
+      return error ? ko(error) : unaOrden(data)
     },
     async actualizarOrden(id, payload) {
-      const { data, error } = await supabase.from('ordenes').update(payload).eq('id', id).select().single()
-      return error ? ko(error) : ok(data as Orden)
+      const { data, error } = await supabase.from('ordenes').update(payload).eq('id', id).select(COLS_ORDEN).single()
+      return error ? ko(error) : unaOrden(data)
     },
     async eliminarOrden(id) {
       const { error } = await supabase.from('ordenes').delete().eq('id', id)
@@ -118,47 +155,54 @@ export function crearBackendSupabase(supabase: SupabaseClient): Backend {
       fechas(desde, hasta)
       // Dentro del rango; o empezó antes y aún dura; o es una serie ya empezada; o es una excepción de un día del rango
       const desdeLargo = addDias(desde, -366)
-      const { data, error } = await supabase
-        .from('eventos')
-        .select(COLS_EVENTO)
-        .or(
-          `and(fecha.gte.${desde},fecha.lte.${hasta}),` +
-            `and(fecha.gte.${desdeLargo},fecha.lt.${desde},fecha_fin.gte.${desde}),` +
-            `and(rrule.not.is.null,fecha.lte.${hasta}),` +
-            `and(serie_id.not.is.null,ocurrencia_original.gte.${desde},ocurrencia_original.lte.${hasta})`,
-        )
-        .limit(5000)
+      const { data, error } = await todasLasFilas(
+        (a, b) =>
+          supabase
+            .from('eventos')
+            .select(COLS_EVENTO)
+            .or(
+              `and(fecha.gte.${desde},fecha.lte.${hasta}),` +
+                `and(fecha.gte.${desdeLargo},fecha.lt.${desde},fecha_fin.gte.${desde}),` +
+                `and(rrule.not.is.null,fecha.lte.${hasta}),` +
+                `and(serie_id.not.is.null,ocurrencia_original.gte.${desde},ocurrencia_original.lte.${hasta})`,
+            )
+            .order('id')
+            .range(a, b),
+        5000,
+      )
       return error ? ko(error) : ok(eventos(data))
     },
     async listarVisitasFuturas(hoy) {
       fechas(hoy)
-      const { data, error } = await supabase
-        .from('eventos')
-        .select(COLS_EVENTO)
-        .eq('tipo', 'visita')
-        .eq('estado', 'pendiente')
-        .gte('fecha', hoy)
-        .not('orden_id', 'is', null)
-        .order('fecha')
-        .limit(5000)
+      const { data, error } = await todasLasFilas(
+        (a, b) =>
+          supabase
+            .from('eventos')
+            .select(COLS_EVENTO)
+            .eq('tipo', 'visita')
+            .eq('estado', 'pendiente')
+            .gte('fecha', hoy)
+            .not('orden_id', 'is', null)
+            .order('fecha')
+            .order('id')
+            .range(a, b),
+        5000,
+      )
       return error ? ko(error) : ok(eventos(data))
     },
     async listarEventosDeTipos(tipos) {
       const validos = tipos.filter((t) => /^[a-z0-9_]{2,40}$/.test(t))
       if (!validos.length) return ok([])
-      const { data, error } = await supabase
-        .from('eventos')
-        .select(COLS_EVENTO)
-        .in('tipo', validos)
-        .neq('estado', 'cancelada')
-        .not('orden_id', 'is', null)
-        .limit(10000)
+      const { data, error } = await todasLasFilas(
+        (a, b) => supabase.from('eventos').select(COLS_EVENTO).in('tipo', validos).neq('estado', 'cancelada').not('orden_id', 'is', null).order('id').range(a, b),
+        10_000,
+      )
       return error ? ko(error) : ok(eventos(data))
     },
     async listarAgendaOrden(ordenId) {
       const [e, t] = await Promise.all([
-        supabase.from('eventos').select(COLS_EVENTO).eq('orden_id', ordenId).order('fecha').limit(1000),
-        supabase.from('tareas').select(COLS_TAREA).eq('orden_id', ordenId).order('vence').limit(1000),
+        todasLasFilas((a, b) => supabase.from('eventos').select(COLS_EVENTO).eq('orden_id', ordenId).order('fecha').order('id').range(a, b), 5000),
+        todasLasFilas((a, b) => supabase.from('tareas').select(COLS_TAREA).eq('orden_id', ordenId).order('vence').order('id').range(a, b), 5000),
       ])
       if (e.error) return ko(e.error)
       if (t.error) return ko(t.error)
@@ -178,11 +222,16 @@ export function crearBackendSupabase(supabase: SupabaseClient): Backend {
     },
     async listarTareas(desde, hasta) {
       fechas(desde, hasta)
-      const { data, error } = await supabase
-        .from('tareas')
-        .select(COLS_TAREA)
-        .or(`and(vence.gte.${desde},vence.lte.${hasta}),and(hecha.eq.false,vence.is.null),and(hecha.eq.false,vence.lt.${desde})`)
-        .limit(5000)
+      const { data, error } = await todasLasFilas(
+        (a, b) =>
+          supabase
+            .from('tareas')
+            .select(COLS_TAREA)
+            .or(`and(vence.gte.${desde},vence.lte.${hasta}),and(hecha.eq.false,vence.is.null),and(hecha.eq.false,vence.lt.${desde})`)
+            .order('id')
+            .range(a, b),
+        5000,
+      )
       return error ? ko(error) : ok(tareas(data))
     },
     async crearTarea(t) {
@@ -198,12 +247,10 @@ export function crearBackendSupabase(supabase: SupabaseClient): Backend {
       return error ? mensajeError(error) : null
     },
     async listarHistorial(ordenId) {
-      const { data, error } = await supabase
-        .from('historial_ordenes')
-        .select('id,orden_id,momento,tipo,campo,antes,despues')
-        .eq('orden_id', ordenId)
-        .order('momento')
-        .limit(2000)
+      const { data, error } = await todasLasFilas(
+        (a, b) => supabase.from('historial_ordenes').select('id,orden_id,momento,tipo,campo,antes,despues').eq('orden_id', ordenId).order('momento').order('id').range(a, b),
+        5000,
+      )
       return error ? ko(error) : ok((data ?? []).map(leerCambio).filter((c): c is CambioHistorial => !!c))
     },
     async listarTipos() {

@@ -1,5 +1,5 @@
 // Tipos y lógica de plazos migrada de las fórmulas del Excel real ("Hoja 1")
-import { hoyIso } from './fechas'
+import { esIso, hoyIso } from './fechas'
 import { contextoBase, peorNivelDe, plazoDe, proximoPlazo, type ContextoPlazos, type Nivel, type OrdenPlazos, type PlazoCalc } from './plazos/motor'
 
 export const ESTADOS = ['EN CURSO', 'PTE ENTREGA', 'DEVUELTA', 'FINALIZADA'] as const
@@ -34,6 +34,49 @@ export interface Orden {
 }
 
 export type OrdenInput = Omit<Orden, 'id' | 'created_at' | 'updated_at'>
+
+/** Columnas que se piden a la base de datos (todas las del tipo Orden: las usan la tabla, el CSV y el formulario) */
+export const COLS_ORDEN =
+  'id,num_orden,estado,empresa,fecha_orden,fecha_primera_actuacion,fecha_ultima_actuacion,fecha_cierre,objeto,estado_docum,estado_visita,fecha_visita,situacion_general,tareas_pendientes,comparecencia_subida,doc_subida,claves,created_at,updated_at'
+
+const RE_UUID_ORDEN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+const textoONulo = (v: unknown): string | null => (typeof v === 'string' ? v : null)
+const fechaONula = (v: unknown): string | null => (esIso(v) ? (v as string) : null)
+const deLista = <T extends string>(v: unknown, lista: readonly T[]): T | null => ((lista as readonly unknown[]).includes(v) ? (v as T) : null)
+
+/**
+ * Valida una fila de la tabla «ordenes» (como leerEvento/leerTarea). Sin id, nº, empresa o un estado
+ * conocido se descarta (null); un dato opcional raro se deja vacío. Los textos no se recortan.
+ */
+export function leerOrden(f: unknown): Orden | null {
+  if (!f || typeof f !== 'object') return null
+  const r = f as Record<string, unknown>
+  if (typeof r.id !== 'string' || !RE_UUID_ORDEN.test(r.id)) return null
+  if (typeof r.num_orden !== 'string' || typeof r.empresa !== 'string') return null
+  const estado = deLista(r.estado, ESTADOS)
+  if (!estado) return null
+  return {
+    id: r.id,
+    num_orden: r.num_orden,
+    estado,
+    empresa: r.empresa,
+    fecha_orden: fechaONula(r.fecha_orden),
+    fecha_primera_actuacion: fechaONula(r.fecha_primera_actuacion),
+    fecha_ultima_actuacion: fechaONula(r.fecha_ultima_actuacion),
+    fecha_cierre: fechaONula(r.fecha_cierre),
+    objeto: textoONulo(r.objeto),
+    estado_docum: deLista(r.estado_docum, ESTADOS_DOCUM),
+    estado_visita: textoONulo(r.estado_visita),
+    fecha_visita: textoONulo(r.fecha_visita),
+    situacion_general: textoONulo(r.situacion_general),
+    tareas_pendientes: textoONulo(r.tareas_pendientes),
+    comparecencia_subida: deLista(r.comparecencia_subida, SI_NO),
+    doc_subida: deLista(r.doc_subida, SI_NO),
+    claves: deLista(r.claves, SI_NO),
+    created_at: typeof r.created_at === 'string' ? r.created_at : '',
+    updated_at: typeof r.updated_at === 'string' ? r.updated_at : '',
+  }
+}
 
 /**
  * Longitud máxima de los textos de una orden. La usan el formulario y el servidor MCP, y coincide con
