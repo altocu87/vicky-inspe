@@ -503,7 +503,7 @@ function TiposCita({ avisar }: { avisar: (m: string, e?: boolean) => void }) {
   )
 }
 
-/** Asistentes (ChatGPT) con permiso para entrar con tu usuario. Quitar el acceso lo corta al momento. */
+/** Asistentes (ChatGPT) con permiso para entrar con tu usuario. Quitar el acceso lo corta en, como mucho, 15 minutos. */
 function Conexiones({ avisar }: { avisar: (m: string, e?: boolean) => void }) {
   const [lista, setLista] = useState<Conexion[] | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -524,7 +524,7 @@ function Conexiones({ avisar }: { avisar: (m: string, e?: boolean) => void }) {
   }, [cargar])
 
   async function quitar(c: Conexion) {
-    if (!window.confirm(`¿Quitar el acceso de «${c.nombre}»? Dejará de poder consultar o cambiar tus datos al momento. Para volver a usarlo, tendrás que conectarlo otra vez desde ChatGPT.`)) return
+    if (!window.confirm(`¿Quitar el acceso de «${c.nombre}»? Dejará de poder consultar o cambiar tus datos en unos minutos (como mucho 15). Para volver a usarlo, tendrás que conectarlo otra vez desde ChatGPT.`)) return
     setQuitando(c.clientId)
     const err = await (await api()).revocarConexion(c.clientId)
     setQuitando(null)

@@ -155,7 +155,10 @@ site_url = "https://vicky-inspe.vercel.app"
 # A list of *exact* URLs that auth providers are permitted to redirect to post authentication.
 additional_redirect_urls = ["https://vicky-inspe.vercel.app", "http://localhost:5173"]
 # How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 (1 week).
-jwt_expiry = 3600
+# 15 minutos: al quitar el acceso a un asistente (ChatGPT), su token deja de valer contra la API
+# como mucho en ese tiempo. En el proyecto real hay que poner el MISMO valor en el panel de Supabase
+# (Authentication → Sessions / JWT expiry): este archivo solo se aplica en local.
+jwt_expiry = 900
 # JWT issuer URL. If not set, defaults to the local API URL (http://127.0.0.1:<port>/auth/v1).
 # jwt_issuer = ""
 # Path to JWT signing key. DO NOT commit your signing keys file to git.
