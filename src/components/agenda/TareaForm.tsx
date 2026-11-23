@@ -1,7 +1,7 @@
 // Formulario de una tarea (nueva o para editar).
 import { useState } from 'react'
 import { esIso, fmt, hoyIso, nombreDia } from '../../lib/fechas'
-import { NOMBRE_PRIORIDAD, NOMBRE_REPETICION, PRIORIDADES, REPETICIONES, type TareaInput } from '../../lib/tareas'
+import { cambiosAlHacer, NOMBRE_PRIORIDAD, NOMBRE_REPETICION, PRIORIDADES, REPETICIONES, type TareaInput } from '../../lib/tareas'
 import { proximoLunes } from '../../lib/semana'
 import type { Orden } from '../../lib/ordenes'
 import { Dialogo, Interruptor, Opciones, SelectorOrden } from './piezas'
@@ -26,6 +26,9 @@ export function TareaForm({
   const [error, setError] = useState<string | null>(null)
   const set = <K extends keyof TareaInput>(k: K, v: TareaInput[K]) => setF((p) => ({ ...p, [k]: v }))
 
+  // ¿Se acaba de marcar como hecha una tarea que se repite? (al guardar pasará a la siguiente fecha)
+  const seRepiteYSeMarca = (t: TareaInput) => !!id && t.hecha && !inicial.hecha && !!t.vence && t.repeticion !== 'no'
+
   async function guardar(e: React.FormEvent) {
     e.preventDefault()
     const titulo = f.titulo.trim()
@@ -42,9 +45,11 @@ export function TareaForm({
       duracion_min: f.vence && f.hora ? dur : null,
       repeticion: f.vence ? f.repeticion : 'no',
     }
+    // Una tarea que se repite no se cierra al marcarla: pasa a la siguiente fecha (como en la lista).
+    const final = seRepiteYSeMarca(limpio) ? { ...limpio, ...cambiosAlHacer({ ...limpio, id: id! }, hoyIso()) } : limpio
     setGuardando(true)
     try {
-      const ok = await onGuardar(limpio)
+      const ok = await onGuardar(final)
       if (ok) onClose()
     } catch {
       setError('No se pudo guardar: no hay conexión con el servidor. Inténtalo de nuevo.')
@@ -137,6 +142,11 @@ export function TareaForm({
           <textarea id="ta-notas" rows={3} value={f.notas ?? ''} maxLength={4000} onChange={(e) => set('notas', e.target.value)} />
         </div>
         {id && <Interruptor label="Hecha" checked={f.hecha} onChange={(v) => setF((p) => ({ ...p, hecha: v, hecha_el: v ? hoyIso() : null }))} />}
+        {seRepiteYSeMarca(f) && esIso(f.vence) && (
+          <p className="aviso-caja">
+            <span className="icon">event_repeat</span> Se repite: al guardar no se cierra, pasa a la siguiente fecha ({fmt(cambiosAlHacer({ ...f, id: id! }, hoyIso()).vence!)}).
+          </p>
+        )}
         {error && (
           <p className="form-error" role="alert">
             <span className="icon">error</span>

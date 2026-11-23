@@ -4,10 +4,10 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { api, type Resultado } from '../data/api'
 import { useAlVolver } from '../hooks'
-import { eventoDeTipos, eventoEnRango, juntar, Recientes, sustituir, tareaEnRango, visitaFutura } from '../lib/juntar'
+import { eventoDeTipos, eventoEnRango, juntar, Recientes, sustituir, tareaEnRango } from '../lib/juntar'
 import { combinarTipos, TIPOS_BASE, type Evento, type EventoInput, type TipoCita } from '../lib/eventos'
 import { addDias } from '../lib/fechas'
-import { ordenesConVisitaFutura, proximasVisitas } from '../lib/porProgramar'
+import { esVisitaFuturaOSerie, ordenesConVisitaFutura, proximasVisitas } from '../lib/porProgramar'
 import type { Tarea, TareaInput } from '../lib/tareas'
 
 export interface Agenda {
@@ -91,7 +91,8 @@ export function useAgendaEstado(hoy: string, avisar: (msg: string, err?: boolean
   const recargarTipos = useCallback(async () => {
     const r = await (await api()).listarTipos()
     if (r.error === null) setTiposFilas(r.data)
-  }, [])
+    else fallo('No se pudieron cargar los tipos de cita: ' + r.error)
+  }, [fallo])
 
   // Al empezar: visitas futuras (para la tabla y «Por programar»), tipos y tareas de este mes y pendientes
   useEffect(() => {
@@ -107,8 +108,10 @@ export function useAgendaEstado(hoy: string, avisar: (msg: string, err?: boolean
       setDisponible(true)
       const bor = borrados.current.conjunto()
       const toc = tocados.current.conjunto(inicio)
-      setEventos((m) => sustituir(m, v.data, visitaFutura(hoy), bor, toc))
+      // Misma condición que la consulta (visitas pendientes desde hoy, series y sus excepciones)
+      setEventos((m) => sustituir(m, v.data, (e) => e.tipo === 'visita' && !!e.orden_id && esVisitaFuturaOSerie(e, hoy), bor, toc))
       if (t.error === null) setTareas((m) => sustituir(m, t.data, tareaEnRango(desde, hasta), bor, toc))
+      else fallo('No se pudieron cargar las tareas: ' + t.error)
       recargarTipos()
     })().catch(() => vivo && fallo('No se pudo cargar la agenda: no hay conexión con el servidor.'))
     return () => {
@@ -120,16 +123,21 @@ export function useAgendaEstado(hoy: string, avisar: (msg: string, err?: boolean
   const clavesTipos = [...tiposPlazo].sort().join(',')
   useEffect(() => {
     if (!clavesTipos) return
+    let vivo = true
     ;(async () => {
       const inicio = Date.now()
       const lista = clavesTipos.split(',')
       const r = await (await api()).listarEventosDeTipos(lista)
-      if (r.error !== null) return
+      if (!vivo) return
+      if (r.error !== null) return fallo('No se pudieron cargar las citas de los plazos: ' + r.error)
       const bor = borrados.current.conjunto()
       const toc = tocados.current.conjunto(inicio)
       setEventos((m) => sustituir(m, r.data, eventoDeTipos(lista), bor, toc))
-    })().catch(() => {})
-  }, [clavesTipos, recarga])
+    })().catch(() => vivo && fallo('No se pudieron cargar las citas de los plazos: no hay conexión con el servidor.'))
+    return () => {
+      vivo = false
+    }
+  }, [clavesTipos, fallo, recarga])
 
   const cargarRango = useCallback(
     async (desde: string, hasta: string) => {
@@ -153,6 +161,7 @@ export function useAgendaEstado(hoy: string, avisar: (msg: string, err?: boolean
         const toc = tocados.current.conjunto(inicio)
         setEventos((m) => sustituir(m, e.data, eventoEnRango(ini, fin), bor, toc))
         if (t.error === null) setTareas((m) => sustituir(m, t.data, tareaEnRango(ini, fin), bor, toc))
+        else fallo('No se pudieron cargar las tareas: ' + t.error)
       } catch {
         cargados.current.delete(clave)
         fallo('No se pudo cargar el calendario: no hay conexión con el servidor.')

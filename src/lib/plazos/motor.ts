@@ -145,6 +145,12 @@ export function plazoDe(o: OrdenPlazos, id: string, ctx: ContextoPlazos): PlazoC
   return plazosDe(o, ctx).find((p) => p.regla.id === id) ?? null
 }
 
+/** Como `plazoDe`, pero null si la regla está desactivada en Ajustes (para mostrar «—» en las columnas) */
+export function plazoActivoDe(o: OrdenPlazos, id: string, ctx: ContextoPlazos): PlazoCalc | null {
+  const p = plazoDe(o, id, ctx)
+  return p && p.regla.activa ? p : null
+}
+
 /**
  * Plazos que hay que vigilar: aplican y no son un duplicado de su tope
  * (si «Siguiente» se recorta a «9 meses», sale solo una vez).

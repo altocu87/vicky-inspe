@@ -181,7 +181,8 @@ export function OrdenForm({ orden, onClose, onSaved, onDelete, onError, todas = 
     if (textoDemasiadoLargo(f)) return onError('Hay un texto demasiado largo (marcado en rojo). Acórtalo para poder guardar.')
     setSaving(true)
     const t = (v: string | null) => (v && v.trim() ? v.trim() : null)
-    const payload = {
+    // Datos tal y como se guardan (limpios). Se aplica igual a lo escrito y a la foto inicial.
+    const limpiar = (f: OrdenInput) => ({
       num_orden: f.num_orden.trim().toUpperCase(),
       estado: f.estado,
       empresa: f.empresa.trim().toUpperCase(),
@@ -198,22 +199,35 @@ export function OrdenForm({ orden, onClose, onSaved, onDelete, onError, todas = 
       comparecencia_subida: f.comparecencia_subida,
       doc_subida: f.doc_subida,
       claves: f.claves,
+    })
+    const todo = limpiar(f)
+    // Al editar, solo se envían los campos que han cambiado: así no se pisan cambios hechos
+    // mientras tanto desde otra pestaña o por ChatGPT en los campos que no se han tocado.
+    const antes = limpiar(inicial)
+    const payload = nueva ? todo : (Object.fromEntries(Object.entries(todo).filter(([k, v]) => v !== antes[k as keyof typeof antes])) as Partial<typeof todo>)
+    if (!nueva && Object.keys(payload).length === 0) {
+      ref.current?.close()
+      onClose()
+      return
     }
     try {
       const b = await api()
       const { data, error } = nueva ? await b.crearOrden(payload) : await b.actualizarOrden(orden.id, payload)
       if (error !== null) {
+        setSaving(false)
         onError('No se pudo guardar: ' + error)
         return
       }
+      // Si ha ido bien, «Guardando…» sigue hasta cerrar el formulario: así una segunda pulsación
+      // mientras se crean las visitas no puede duplicar la orden.
       // Visitas elegidas antes de que existiera la orden (si alguna falla, la agenda ya avisa)
       for (const v of nueva ? visitasNuevas : []) await ag.crearEvento(eventoNuevo({ fecha: v, tipo: 'visita', titulo: 'Visita', orden_id: data.id }))
       ref.current?.close()
       onSaved(data, nueva)
     } catch {
-      onError('No se pudo guardar: no hay conexión con el servidor. Inténtalo de nuevo.')
-    } finally {
+      // Sin conexión: se libera el botón para poder reintentar
       setSaving(false)
+      onError('No se pudo guardar: no hay conexión con el servidor. Inténtalo de nuevo.')
     }
   }
 
@@ -343,6 +357,7 @@ export function OrdenForm({ orden, onClose, onSaved, onDelete, onError, todas = 
                           type="button"
                           className="icon-btn"
                           aria-label={t.hecha ? `Marcar «${t.titulo}» como no hecha` : `Marcar «${t.titulo}» como hecha`}
+                          disabled={acc.tareasEnCurso.has(t.id)}
                           onClick={() => acc.alternarTarea(t)}
                         >
                           <span className="icon">{t.hecha ? 'check_box' : 'check_box_outline_blank'}</span>

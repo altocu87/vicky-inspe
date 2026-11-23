@@ -14,7 +14,8 @@ export interface Backend {
   sesion(): Promise<Session | null>
   alCambiarSesion(fn: (s: Session | null) => void): () => void
   entrar(email: string, password: string): Promise<string | null>
-  salir(): Promise<void>
+  /** Cierra la sesión. Devuelve null si fue bien, o un aviso si solo se pudo cerrar en este navegador */
+  salir(): Promise<string | null>
   listarOrdenes(): Promise<Resultado<Orden[]>>
   crearOrden(payload: Partial<Orden>): Promise<Resultado<Orden>>
   actualizarOrden(id: string, payload: Partial<Orden>): Promise<Resultado<Orden>>
@@ -29,7 +30,7 @@ export interface Backend {
   // ---- Fase 2: visitas y citas (eventos), tareas y tipos de cita ----
   /** Eventos que se ven entre dos días: los que caen dentro, las series que ya empezaron y sus excepciones */
   listarEventos(desde: string, hasta: string): Promise<Resultado<Evento[]>>
-  /** Visitas pendientes desde hoy enlazadas a una orden (para «Próxima visita» y «Por programar») */
+  /** Visitas pendientes desde hoy enlazadas a una orden, más las que se repiten y sus excepciones (para «Próxima visita» y «Por programar») */
   listarVisitasFuturas(hoy: string): Promise<Resultado<Evento[]>>
   /** Citas no canceladas de unos tipos (para las reglas de plazo que cuentan desde una cita) */
   listarEventosDeTipos(tipos: string[]): Promise<Resultado<Evento[]>>
@@ -73,8 +74,15 @@ export interface Conexion {
 }
 
 /** Mensaje de error comprensible, sin detalles internos de la base de datos */
-export function mensajeError(e: { message?: string; code?: string } | null | undefined): string {
+export function mensajeError(e: { message?: string; code?: string; status?: number } | null | undefined): string {
   if (!e) return 'Error desconocido'
+  // Sesión caducada o no válida (PostgREST: PGRST301/PGRST303; Auth: 401, bad_jwt, session_expired…)
+  if (
+    e.status === 401 ||
+    ['PGRST301', 'PGRST303', 'bad_jwt', 'session_expired', 'session_not_found', 'refresh_token_not_found'].includes(e.code ?? '') ||
+    /jwt expired/i.test(e.message ?? '')
+  )
+    return 'Tu sesión ha caducado. Vuelve a entrar.'
   if (e.code === '42501' || /row-level security|permission denied/i.test(e.message ?? '')) return 'No tienes permiso para esta acción. Vuelve a iniciar sesión.'
   if (e.code === '23505') return 'Ya existe un registro igual.'
   if (e.code === '23514') return 'Algún dato no es válido.'

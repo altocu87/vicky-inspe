@@ -1,6 +1,6 @@
 // Gestor de la agenda: abre los formularios, las fichas y la pregunta de la orden,
 // y ofrece las acciones (AccionesCtx) a la tabla, al calendario y al formulario de la orden.
-import { useCallback, useMemo, useState, type ReactNode } from 'react'
+import { useCallback, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useAgenda } from '../../state/agenda'
 import { AccionesCtx, type Acciones } from '../../state/acciones'
 import { duplicar, eventoNuevo, type Evento, type EventoInput } from '../../lib/eventos'
@@ -66,11 +66,21 @@ export function GestorAgenda({
     [ag, porId],
   )
 
+  // Tareas que se están marcando: evita que dos pulsaciones seguidas la cambien dos veces
+  // (el ref corta al momento; el estado sirve para desactivar el botón en pantalla)
+  const enCursoRef = useRef(new Set<string>())
+  const [tareasEnCurso, setTareasEnCurso] = useState<ReadonlySet<string>>(new Set())
   const alternarTarea = useCallback(
     async (t: Tarea) => {
+      if (enCursoRef.current.has(t.id)) return
+      enCursoRef.current.add(t.id)
+      setTareasEnCurso(new Set(enCursoRef.current))
       const hoy = hoyIso()
       const cambios: Partial<TareaInput> = t.hecha ? { hecha: false, hecha_el: null } : cambiosAlHacer(t, hoy)
-      const r = await ag.actualizarTarea(t.id, cambios)
+      const r = await ag.actualizarTarea(t.id, cambios).finally(() => {
+        enCursoRef.current.delete(t.id)
+        setTareasEnCurso(new Set(enCursoRef.current))
+      })
       if (!r) return
       if (!t.hecha && r.hecha === false && r.vence) avisar(`Hecha. Se repite: la siguiente es el ${r.vence.split('-').reverse().join('/')}`)
       else avisar(r.hecha ? 'Tarea hecha' : 'Tarea pendiente otra vez', false, () => ag.actualizarTarea(t.id, { hecha: t.hecha, hecha_el: t.hecha_el, vence: t.vence }))
@@ -110,10 +120,11 @@ export function GestorAgenda({
       },
       marcar,
       alternarTarea,
+      tareasEnCurso,
       huecoVisita,
       avisar: (m, e) => avisar(m, e),
     }),
-    [porId, abrirOrden, huecoVisita, marcar, alternarTarea, avisar],
+    [porId, abrirOrden, huecoVisita, marcar, alternarTarea, tareasEnCurso, avisar],
   )
 
   async function guardarEvento(input: EventoInput, modo: ModoSerie): Promise<boolean> {

@@ -53,9 +53,6 @@ export const eventoEnRango = (desde: string, hasta: string) => (e: Evento) =>
 export const tareaEnRango = (desde: string, hasta: string) => (t: Tarea) =>
   (!!t.vence && t.vence >= desde && t.vence <= hasta) || (!t.hecha && (!t.vence || t.vence < desde))
 
-/** Lo que devuelve listarVisitasFuturas(hoy) */
-export const visitaFutura = (hoy: string) => (e: Evento) => e.tipo === 'visita' && e.estado === 'pendiente' && e.fecha >= hoy && !!e.orden_id
-
 /** Lo que devuelve listarEventosDeTipos(tipos) */
 export const eventoDeTipos = (tipos: readonly string[]) => (e: Evento) => tipos.includes(e.tipo) && e.estado !== 'cancelada' && !!e.orden_id
 

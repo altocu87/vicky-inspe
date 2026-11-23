@@ -57,7 +57,7 @@ Ejemplos: «¿Qué tengo el domingo?», «Resumen de la semana», «¿Qué plazo
 
 ## Quitar el acceso (por ejemplo, si pierdes el móvil o el ordenador)
 
-1. **En tu app**: Ajustes → **Asistentes conectados** → **Quitar acceso**. Se corta al momento: el servidor comprueba en cada petición que la sesión sigue viva.
+1. **En tu app**: Ajustes → **Asistentes conectados** → **Quitar acceso**. El servidor de ChatGPT lo corta al momento (comprueba en cada petición que la sesión sigue viva), pero el último permiso que ChatGPT ya tenía puede seguir sirviendo para leer o cambiar datos directamente en la base de datos **hasta 15 minutos** (lo que dura cada token, `jwt_expiry = 900`). Si es urgente, cambia además tu contraseña.
 2. En ChatGPT: Ajustes → Aplicaciones → Inspecciones → **Desconectar/Eliminar**.
 3. Si crees que alguien conoce tu contraseña de la app, cámbiala.
 4. Para apagarlo del todo: en Supabase → Authentication → OAuth Server, desactívalo (o pídemelo).
