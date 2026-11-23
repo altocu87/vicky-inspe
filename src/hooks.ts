@@ -61,3 +61,13 @@ export function useAlVolver(fn: () => void, minMs = 30_000) {
     return () => document.removeEventListener('visibilitychange', h)
   }, [fn, minMs])
 }
+
+/**
+ * Devuelve siempre el mismo valor mientras su «clave» no cambie, aunque llegue un objeto nuevo.
+ * Sirve para no recalcular todo lo que depende de él cuando el contenido es el mismo.
+ */
+export function useEstable<T>(valor: T, clave: string): T {
+  const ref = useRef({ clave, valor })
+  if (ref.current.clave !== clave) ref.current = { clave, valor }
+  return ref.current.valor
+}

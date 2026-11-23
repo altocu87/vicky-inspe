@@ -8,7 +8,7 @@ import { hoyIso } from '../../lib/fechas'
 import type { MapaFestivos } from '../../lib/habiles'
 import type { Orden } from '../../lib/ordenes'
 import { proximoHuecoVisita, visitasPorDia } from '../../lib/semana'
-import { restaurarEventos, restaurarTareas, textoFallos } from '../../lib/restaurar'
+import { deUnoEnUno, restaurarEventos, restaurarTareas, textoFallos } from '../../lib/restaurar'
 import { api } from '../../data/api'
 import { cambiosAlHacer, tareaNueva, type Tarea, type TareaInput } from '../../lib/tareas'
 import { hayPropuesta, propuestaAlMarcar, type PropuestaOrden, type Resultado } from '../../lib/visitaEstado'
@@ -167,7 +167,7 @@ export function GestorAgenda({
     if (await ag.eliminarEvento(e.id)) {
       cerrar()
       avisar(e.rrule ? 'Serie eliminada' : 'Eliminada', false, async () => {
-        const fallos = await restaurarEventos([e, ...excepciones], ag.crearEvento)
+        const fallos = await restaurarEventos([e, ...excepciones], deUnoEnUno(ag.crearEvento))
         avisar(fallos ? `Restaurada a medias: ${textoFallos(fallos)}` : e.rrule ? 'Serie restaurada' : 'Restaurada', fallos > 0)
       })
     }
@@ -178,7 +178,7 @@ export function GestorAgenda({
     if (await ag.eliminarTarea(t.id)) {
       cerrar()
       avisar('Tarea eliminada', false, async () => {
-        if (await restaurarTareas([t], ag.crearTarea)) avisar('No se pudo restaurar la tarea', true)
+        if (await restaurarTareas([t], deUnoEnUno(ag.crearTarea))) avisar('No se pudo restaurar la tarea', true)
       })
     }
   }

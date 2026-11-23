@@ -1,6 +1,5 @@
 // Piezas comunes de las herramientas del servidor MCP.
 import type { Backend, Resultado } from '../data/backend'
-import { addDias } from '../lib/fechas'
 import { FESTIVOS_ALBACETE } from '../lib/festivosAlbacete'
 import { mapaFestivos, type Festivo } from '../lib/habiles'
 import type { Orden } from '../lib/ordenes'
@@ -120,6 +119,3 @@ export async function buscarOrden(ctx: Ctx, ref: { orden_id?: string; num_orden?
   }
   throw new ErrorHerramienta('Indica la orden: su id o su nº de orden.')
 }
-
-/** Días entre hoy y hoy + n */
-export const masDias = (ctx: Ctx, n: number) => addDias(ctx.hoy, n)

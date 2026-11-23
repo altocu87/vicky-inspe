@@ -288,3 +288,20 @@ describe('reglas que cuentan desde una cita (fase 2)', () => {
     expect(plazoDe(o, 'tras_comp', ctx)?.fecha).toBe('2026-11-20')
   })
 })
+
+describe('caché de cálculos (mismo resultado, sin repetir trabajo)', () => {
+  const o = { id: 'c1', estado: 'EN CURSO', fecha_orden: '2026-01-10', fecha_primera_actuacion: '2026-02-01', fecha_ultima_actuacion: '2026-06-01' }
+  it('reutiliza el cálculo para la misma orden y contexto', () => {
+    const ctx = contextoBase('2026-11-19')
+    expect(plazosDe(o, ctx)).toBe(plazosDe(o, ctx))
+    expect(proximoPlazo(o, ctx)).toBe(proximoPlazo(o, ctx))
+  })
+  it('recalcula con otro contexto o con otra orden (copia modificada)', () => {
+    const a = contextoBase('2026-11-19')
+    const b = contextoBase('2026-12-19')
+    expect(plazoDe(o, 'lim9', a)?.dias).toBe((plazoDe(o, 'lim9', b)?.dias ?? 0) + 30)
+    const o2 = { ...o, fecha_primera_actuacion: '2026-03-01' }
+    expect(plazoDe(o2, 'lim9', a)?.fecha).toBe('2026-12-01')
+    expect(plazoDe(o, 'lim9', a)?.fecha).toBe('2026-11-01')
+  })
+})

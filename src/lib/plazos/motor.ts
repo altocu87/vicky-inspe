@@ -1,5 +1,5 @@
 // Motor de plazos: aplica las reglas a una orden y devuelve sus fechas límite.
-// Es lógica pura (sin React ni Supabase) para poder usarla también en la Edge Function del correo.
+// Es lógica pura (sin React ni Supabase): la usan la web y el servidor MCP para ChatGPT (función de Supabase).
 import { addDias, diasEntre, edate, esIso } from '../fechas'
 import { SIN_FESTIVOS, motivoInhabil, sumarHabiles, type Inhabil, type MapaFestivos } from '../habiles'
 import { REGLAS_BASE, type Regla } from './reglas'
@@ -63,17 +63,31 @@ export function contextoBase(hoy: string): ContextoPlazos {
   return { hoy, reglas: REGLAS_BASE, festivos: SIN_FESTIVOS }
 }
 
+/** Última fecha de cada (orden, tipo de evento), indexada una sola vez por lista de eventos */
+const INDICE_EVENTOS = new WeakMap<readonly EventoPlazos[], Map<string, string>>()
+
+function ultimaFechaEvento(eventos: readonly EventoPlazos[] | undefined, ordenId: string | undefined, tipo: string): string | null {
+  if (!eventos || ordenId === undefined) return null
+  let idx = INDICE_EVENTOS.get(eventos)
+  if (!idx) {
+    idx = new Map()
+    for (const e of eventos) {
+      if (!esIso(e.fecha)) continue
+      const k = e.orden_id + '\u0000' + e.tipo
+      const prev = idx.get(k)
+      if (!prev || e.fecha > prev) idx.set(k, e.fecha)
+    }
+    INDICE_EVENTOS.set(eventos, idx)
+  }
+  return idx.get(ordenId + '\u0000' + tipo) ?? null
+}
+
 function fechaPartida(o: OrdenPlazos, r: Regla, ctx: ContextoPlazos): string | null {
   if ('campo' in r.partida) {
     const v = o[r.partida.campo]
     return esIso(v) ? v : null
   }
-  const tipo = r.partida.evento
-  let ultima: string | null = null
-  for (const e of ctx.eventos ?? []) {
-    if (e.orden_id === o.id && e.tipo === tipo && esIso(e.fecha) && (!ultima || e.fecha > ultima)) ultima = e.fecha
-  }
-  return ultima
+  return ultimaFechaEvento(ctx.eventos, o.id, r.partida.evento)
 }
 
 function sumar(desde: string, r: Regla, festivos: MapaFestivos): string {
@@ -118,8 +132,35 @@ function calcularFecha(
   return res
 }
 
-/** Todos los plazos de una orden, en el orden de las reglas. Incluye los que no aplican (marcados). */
-export function plazosDe(o: OrdenPlazos, ctx: ContextoPlazos): PlazoCalc[] {
+/**
+ * Resultados ya calculados por contexto y orden. El contexto se crea una vez (useMemo en App)
+ * y las órdenes son objetos inmutables (estado de React), así que la tabla, las fichas, los
+ * filtros y el comparador de la ordenación comparten el mismo cálculo en vez de repetirlo.
+ * Se usa WeakMap: al cambiar el contexto o la orden, lo viejo se libera solo.
+ */
+interface Calculo {
+  todos: PlazoCalc[]
+  vigilados?: PlazoCalc[]
+  proximo?: PlazoCalc | null
+  peor?: Nivel | null
+}
+const CACHE = new WeakMap<ContextoPlazos, WeakMap<OrdenPlazos, Calculo>>()
+
+function calculo(o: OrdenPlazos, ctx: ContextoPlazos): Calculo {
+  let porOrden = CACHE.get(ctx)
+  if (!porOrden) {
+    porOrden = new WeakMap()
+    CACHE.set(ctx, porOrden)
+  }
+  let c = porOrden.get(o)
+  if (!c) {
+    c = { todos: calcularPlazos(o, ctx) }
+    porOrden.set(o, c)
+  }
+  return c
+}
+
+function calcularPlazos(o: OrdenPlazos, ctx: ContextoPlazos): PlazoCalc[] {
   const cache = new Map<string, { fecha: string; desde: string; recortado: boolean } | null>()
   const out: PlazoCalc[] = []
   for (const r of ctx.reglas) {
@@ -140,6 +181,14 @@ export function plazosDe(o: OrdenPlazos, ctx: ContextoPlazos): PlazoCalc[] {
   return out
 }
 
+/**
+ * Todos los plazos de una orden, en el orden de las reglas. Incluye los que no aplican (marcados).
+ * El resultado se comparte entre llamadas: no modificar la lista devuelta.
+ */
+export function plazosDe(o: OrdenPlazos, ctx: ContextoPlazos): PlazoCalc[] {
+  return calculo(o, ctx).todos
+}
+
 /** Un plazo concreto (por id de regla), o null */
 export function plazoDe(o: OrdenPlazos, id: string, ctx: ContextoPlazos): PlazoCalc | null {
   return plazosDe(o, ctx).find((p) => p.regla.id === id) ?? null
@@ -156,19 +205,31 @@ export function plazoActivoDe(o: OrdenPlazos, id: string, ctx: ContextoPlazos): 
  * (si «Siguiente» se recorta a «9 meses», sale solo una vez).
  */
 export function plazosVigilados(o: OrdenPlazos, ctx: ContextoPlazos): PlazoCalc[] {
-  const todos = plazosDe(o, ctx).filter((p) => p.aplica)
-  return todos.filter((p) => !(p.recortado && todos.some((q) => q.regla.id === p.regla.tope && q.fecha === p.fecha)))
+  const c = calculo(o, ctx)
+  if (!c.vigilados) {
+    const todos = c.todos.filter((p) => p.aplica)
+    c.vigilados = todos.filter((p) => !(p.recortado && todos.some((q) => q.regla.id === p.regla.tope && q.fecha === p.fecha)))
+  }
+  return c.vigilados
 }
 
 /** El plazo vigilado más cercano (el vencido más antiguo va primero) */
 export function proximoPlazo(o: OrdenPlazos, ctx: ContextoPlazos): PlazoCalc | null {
-  let mejor: PlazoCalc | null = null
-  for (const p of plazosVigilados(o, ctx)) if (!mejor || p.fecha < mejor.fecha) mejor = p
-  return mejor
+  const c = calculo(o, ctx)
+  if (c.proximo === undefined) {
+    let mejor: PlazoCalc | null = null
+    for (const p of plazosVigilados(o, ctx)) if (!mejor || p.fecha < mejor.fecha) mejor = p
+    c.proximo = mejor
+  }
+  return c.proximo
 }
 
 /** El nivel más grave de la orden (null si no tiene plazos vigilados) */
 export function peorNivelDe(o: OrdenPlazos, ctx: ContextoPlazos): Nivel | null {
-  const niveles = new Set(plazosVigilados(o, ctx).map((p) => p.nivel))
-  return NIVELES.find((n) => niveles.has(n)) ?? null
+  const c = calculo(o, ctx)
+  if (c.peor === undefined) {
+    const niveles = new Set(plazosVigilados(o, ctx).map((p) => p.nivel))
+    c.peor = NIVELES.find((n) => niveles.has(n)) ?? null
+  }
+  return c.peor
 }

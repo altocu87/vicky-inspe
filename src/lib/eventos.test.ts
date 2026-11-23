@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { combinarTipos, duplicar, enlaceMapa, enlaceTel, esquemaPermitido, leerEvento, leerTipo, ocupaDia, rruleValida, textoHora } from './eventos'
+import { combinarTipos, duplicar, enlaceMapa, enlaceTel, esquemaPermitido, leerEvento, leerTipo, rruleValida, textoHora } from './eventos'
 
 const ID = '00000000-0000-4000-8000-000000000001'
 const OID = '00000000-0000-4000-8000-0000000000AA'
@@ -52,11 +52,9 @@ describe('utilidades', () => {
     expect(rruleValida('DTSTART:20200101T000000Z\nRRULE:FREQ=DAILY')).toBe(false)
     expect(rruleValida('FREQ=SECONDLY')).toBe(false)
   })
-  it('textoHora y ocupaDia', () => {
+  it('textoHora', () => {
     expect(textoHora({ todo_el_dia: true, hora_inicio: null, hora_fin: null })).toBe('Todo el día')
     expect(textoHora({ todo_el_dia: false, hora_inicio: '09:00', hora_fin: '10:00' })).toBe('09:00–10:00')
-    expect(ocupaDia({ fecha: '2026-11-22', fecha_fin: '2026-11-24' }, '2026-11-24')).toBe(true)
-    expect(ocupaDia({ fecha: '2026-11-22', fecha_fin: null }, '2026-11-23')).toBe(false)
   })
   it('duplicar mantiene la duración y no copia la serie', () => {
     const e = leerEvento({ ...base, todo_el_dia: true, fecha_fin: '2026-11-24', rrule: 'FREQ=WEEKLY', estado: 'hecha' })!

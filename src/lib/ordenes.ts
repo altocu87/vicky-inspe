@@ -201,8 +201,3 @@ export function diasMinimos(o: OrdenInput & { id?: string }, ctx: ContextoPlazos
   if (!activa(o)) return 2e9
   return proximoPlazo(o, ctx)?.dias ?? 1e9
 }
-
-/** Pendientes de subir (comparecencia, doc., claves) en órdenes activas */
-export function faltaSubir(o: OrdenInput): number {
-  return [o.comparecencia_subida, o.doc_subida, o.claves].filter((v) => !v).length
-}

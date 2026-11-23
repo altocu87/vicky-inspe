@@ -67,9 +67,14 @@ export async function todasLasFilas(
   return { data: filas, error: null }
 }
 
-/** Solo fechas válidas en los filtros (se construyen como texto) */
-function fechas(...f: string[]) {
-  if (!f.every(esIso)) throw new Error('Fecha no válida')
+/** Lista completa o error: en las inserciones masivas no se descarta ninguna fila (se usa su posición) */
+function todas<T>(d: unknown[] | null, n: number, leer: (x: unknown) => T | null): Resultado<T[]> {
+  const out = (d ?? []).map(leer)
+  return out.length === n && out.every((x) => x !== null) ? ok(out as T[]) : { data: null, error: 'Respuesta no válida' }
+}
+/** Solo fechas válidas en los filtros (se construyen como texto). Devuelve el error, o null si todas valen */
+function fechas(...f: string[]): Resultado<never> | null {
+  return f.every(esIso) ? null : { data: null, error: 'Fecha no válida' }
 }
 
 export function crearBackendSupabase(supabase: SupabaseClient): Backend {
@@ -157,7 +162,8 @@ export function crearBackendSupabase(supabase: SupabaseClient): Backend {
 
     // ---------- Fase 2 ----------
     async listarEventos(desde, hasta) {
-      fechas(desde, hasta)
+      const mal = fechas(desde, hasta)
+      if (mal) return mal
       // Dentro del rango; o empezó antes y aún dura; o es una serie ya empezada; o es una excepción de un día del rango
       const desdeLargo = addDias(desde, -366)
       const { data, error } = await todasLasFilas(
@@ -178,7 +184,8 @@ export function crearBackendSupabase(supabase: SupabaseClient): Backend {
       return error ? ko(error) : ok(eventos(data))
     },
     async listarVisitasFuturas(hoy) {
-      fechas(hoy)
+      const mal = fechas(hoy)
+      if (mal) return mal
       const { data, error } = await todasLasFilas(
         (a, b) =>
           supabase
@@ -222,6 +229,11 @@ export function crearBackendSupabase(supabase: SupabaseClient): Backend {
       const { data, error } = await supabase.from('eventos').insert(soloCampos(ev, CAMPOS_EVENTO)).select(COLS_EVENTO).single()
       return error ? ko(error) : unEvento(data)
     },
+    async crearEventos(es) {
+      if (!es.length) return ok([])
+      const { data, error } = await supabase.from('eventos').insert(es.map((ev) => soloCampos(ev, CAMPOS_EVENTO))).select(COLS_EVENTO)
+      return error ? ko(error) : todas(data, es.length, leerEvento)
+    },
     async actualizarEvento(id, cambios) {
       const { data, error } = await supabase.from('eventos').update(soloCampos(cambios, CAMPOS_EVENTO)).eq('id', id).select(COLS_EVENTO).single()
       return error ? ko(error) : unEvento(data)
@@ -231,7 +243,8 @@ export function crearBackendSupabase(supabase: SupabaseClient): Backend {
       return error ? mensajeError(error) : null
     },
     async listarTareas(desde, hasta) {
-      fechas(desde, hasta)
+      const mal = fechas(desde, hasta)
+      if (mal) return mal
       const { data, error } = await todasLasFilas(
         (a, b) =>
           supabase
@@ -247,6 +260,11 @@ export function crearBackendSupabase(supabase: SupabaseClient): Backend {
     async crearTarea(t) {
       const { data, error } = await supabase.from('tareas').insert(soloCampos(t, CAMPOS_TAREA)).select(COLS_TAREA).single()
       return error ? ko(error) : unaTarea(data)
+    },
+    async crearTareas(ts) {
+      if (!ts.length) return ok([])
+      const { data, error } = await supabase.from('tareas').insert(ts.map((t) => soloCampos(t, CAMPOS_TAREA))).select(COLS_TAREA)
+      return error ? ko(error) : todas(data, ts.length, leerTarea)
     },
     async actualizarTarea(id, cambios) {
       const { data, error } = await supabase.from('tareas').update(soloCampos(cambios, CAMPOS_TAREA)).eq('id', id).select(COLS_TAREA).single()
