@@ -3,19 +3,7 @@ import { fmt, label, type Orden } from '../lib/ordenes'
 import { plazosDe } from '../lib/plazos/motor'
 import { Plazo } from './Plazo'
 import { BotonVerCalendario } from './plazos'
-
-export const ESTADO_CLASE: Record<string, string> = {
-  'EN CURSO': 'e-curso',
-  'PTE ENTREGA': 'e-pte',
-  DEVUELTA: 'e-dev',
-  FINALIZADA: 'e-fin',
-}
-export const ESTADO_ICONO: Record<string, string> = {
-  'EN CURSO': 'progress_activity',
-  'PTE ENTREGA': 'hourglass_top',
-  DEVUELTA: 'assignment_return',
-  FINALIZADA: 'task_alt',
-}
+import { ESTADO_CLASE, ESTADO_ICONO } from './estados'
 
 export function OrdenCard({ orden, onOpen, index }: { orden: Orden; onOpen: () => void; index: number }) {
   const fin = orden.estado === 'FINALIZADA'

@@ -1,5 +1,5 @@
 // Motor de plazos: aplica las reglas a una orden y devuelve sus fechas límite.
-// Es lógica pura (sin React ni Supabase) para poder usarla también en la Edge Function del correo.
+// Es lógica pura (sin React ni Supabase): la usan la web y el servidor MCP para ChatGPT (función de Supabase).
 import { addDias, diasEntre, edate, esIso } from '../fechas'
 import { SIN_FESTIVOS, motivoInhabil, sumarHabiles, type Inhabil, type MapaFestivos } from '../habiles'
 import { REGLAS_BASE, type Regla } from './reglas'

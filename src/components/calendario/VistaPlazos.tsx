@@ -6,7 +6,7 @@ import { fmt, nombreDia, nombreMesCorto, parse } from '../../lib/fechas'
 import type { Orden } from '../../lib/ordenes'
 import { agruparPlazos, lineasPlazos, type LineaPlazo } from '../../lib/plazos/lista'
 import { NIVELES, NOMBRE_NIVEL, type Nivel } from '../../lib/plazos/motor'
-import { ESTADO_CLASE } from '../OrdenCard'
+import { ESTADO_CLASE } from '../estados'
 import { textoInhabil } from '../../lib/habiles'
 import { MarcaInhabil } from '../plazos'
 

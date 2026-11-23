@@ -151,20 +151,10 @@ export function ultimoDia(e: Pick<Evento, 'fecha' | 'fecha_fin'>): string {
   return e.fecha_fin && e.fecha_fin > e.fecha ? e.fecha_fin : e.fecha
 }
 
-/** ¿Ocupa el día `iso`? */
-export function ocupaDia(e: Pick<Evento, 'fecha' | 'fecha_fin'>, iso: string): boolean {
-  return e.fecha <= iso && iso <= ultimoDia(e)
-}
-
 /** «10:00–11:30», «10:00» o «Todo el día» */
 export function textoHora(e: Pick<Evento, 'todo_el_dia' | 'hora_inicio' | 'hora_fin'>): string {
   if (e.todo_el_dia || !e.hora_inicio) return 'Todo el día'
   return e.hora_fin ? `${e.hora_inicio}–${e.hora_fin}` : e.hora_inicio
-}
-
-/** Clave para ordenar dentro de un día: primero los de todo el día, luego por hora */
-export function claveOrden(e: Pick<Evento, 'todo_el_dia' | 'hora_inicio' | 'titulo'>): string {
-  return (e.todo_el_dia || !e.hora_inicio ? '00' : '1' + e.hora_inicio) + e.titulo
 }
 
 /** Duplica un evento (sin repetición ni excepción) para el mismo día o para otro */

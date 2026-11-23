@@ -7,9 +7,10 @@ import { fmtCorta, label, textoDias, type Orden } from '../lib/ordenes'
 import { plazoDe, proximoPlazo, type ContextoPlazos, type PlazoCalc } from '../lib/plazos/motor'
 import type { Evento } from '../lib/eventos'
 import { useAgenda } from '../state/agenda'
-import { ESTADO_CLASE } from './OrdenCard'
+import { ESTADO_CLASE } from './estados'
 import { BotonProgramar, BotonVerCalendario, MarcaInhabil } from './plazos'
-import { ProximaVisita, proximoOtros } from './TablaOrdenes'
+import { ProximaVisita } from './celdas'
+import { proximoOtros } from './columnas'
 
 /** Una línea «etiqueta · valor» */
 function Linea({ k, children, prox }: { k: string; children: ReactNode; prox?: boolean }) {
