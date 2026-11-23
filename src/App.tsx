@@ -176,6 +176,8 @@ function Panel({ email }: { email: string }) {
   const [ordenes, setOrdenes] = useState<Orden[]>([])
   const [loading, setLoading] = useState(true)
   const [festivos, setFestivos] = useState<Festivo[]>([])
+  /** true si no se pudieron leer los festivos guardados y se están usando los de serie */
+  const [festivosDeSerie, setFestivosDeSerie] = useState(false)
   const [reglasFilas, setReglasFilas] = useState<ReglaFila[]>([])
   // Filtros: UN solo estado para tabla, tarjetas y calendario
   const [q, setQ] = useState('')
@@ -229,9 +231,11 @@ function Panel({ email }: { email: string }) {
     const [f, r] = await Promise.all([b.listarFestivos(`${anio - 1}-01-01`, `${anio + 2}-12-31`), b.listarReglas()])
     // Si aún no existen las tablas o falla la red, se usan los festivos incluidos en la app
     setFestivos(f.error === null ? f.data : [...FESTIVOS_ALBACETE])
+    setFestivosDeSerie(f.error !== null)
+    if (f.error !== null) showSnack({ msg: 'No se pudieron cargar los festivos; se usan los de serie: ' + f.error, err: true })
     setReglasFilas(r.error === null ? r.data : [])
     if (f.error !== null || r.error !== null) console.warn('Configuración del calendario no disponible; se usan los valores por defecto')
-  }, [])
+  }, [showSnack])
 
   useEffect(() => {
     cargar()
@@ -446,7 +450,7 @@ function Panel({ email }: { email: string }) {
     return (
       <PlazosCtx.Provider value={ctx}>
         <AgendaCtx.Provider value={agenda}>
-          <Ajustes festivos={festivos} reglas={reglas} onBack={volver} onCambio={cargarConfig} avisar={(msg, err) => showSnack({ msg, err })} />
+          <Ajustes festivos={festivos} festivosDeSerie={festivosDeSerie} reglas={reglas} onBack={volver} onCambio={cargarConfig} avisar={(msg, err) => showSnack({ msg, err })} />
           {snack && <SnackBar snack={snack} cerrar={() => setSnack(null)} />}
         </AgendaCtx.Provider>
       </PlazosCtx.Provider>
