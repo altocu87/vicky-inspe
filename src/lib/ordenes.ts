@@ -138,6 +138,16 @@ export function textoDias(dias: number): string {
 
 export const activa = (o: OrdenInput) => o.estado !== 'FINALIZADA'
 
+/**
+ * Fecha de cierre que se envía al guardar: si está FINALIZADA y no tiene, la de HOY en España
+ * (la base de datos pondría la de hoy en UTC, que entre las 00:00 y las 01:00/02:00 es el día anterior).
+ * Si no está finalizada, ninguna.
+ */
+export function fechaCierreAlGuardar(estado: Estado, fecha: string | null, hoy: string = hoyIso()): string | null {
+  if (estado !== 'FINALIZADA') return null
+  return fecha || hoy
+}
+
 /** El aviso más urgente de una orden activa */
 export function peorNivel(o: OrdenInput & { id?: string }, ctx: ContextoPlazos = contextoBase(hoyIso())): Nivel | null {
   if (!activa(o)) return null

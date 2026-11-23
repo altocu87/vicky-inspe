@@ -226,7 +226,7 @@ Guía completa (conectar, quitar el acceso, cómo está hecho): **`docs/mcp-chat
 | M6 | OAuth Server de Supabase en beta | Bajo | Revisar avisos de Supabase |
 | M7 | En Plus/Pro, ChatGPT puede permitir solo herramientas de leer | — | Confirmar su plan |
 | S2 | RLS deja a cualquier usuario con sesión | Bajo hoy (1 usuario) | Sigue igual: si se crea otro usuario, aplicar S2 antes |
-| S8 | (Encontrado de paso, ya existía) `set_fecha_cierre` usa `current_date` (UTC): entre las 00:00 y las 01:00/02:00 de España la fecha de cierre saldría del día anterior si la web no la manda | Bajo | El servidor MCP manda la fecha de España; revisar la web en otra sesión |
+| S8 | (Encontrado de paso, ya existía) `set_fecha_cierre` usa `current_date` (UTC): entre las 00:00 y las 01:00/02:00 de España la fecha de cierre saldría del día anterior si la web no la manda | Bajo | El servidor MCP manda la fecha de España; la web también desde la auditoría #13 (23-11-2026). Propuesta opcional para la BD en `docs/propuestas-bd/medios-4-15.sql` |
 
 ## 5. Cómo cierro cada fase
 `npm run lint`, pruebas y `npm run build` en verde. Capturas con Playwright en el ordenador, a 375 px y a 412 px, en claro y en oscuro, comprobando que no haya desplazamiento horizontal. Actualizo este documento y el README, te lo resumo y **te pregunto antes de subirlo a `main`**.

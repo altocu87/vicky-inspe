@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { ESTADOS, ESTADOS_DOCUM, ESTADOS_VISITA, LABELS, MAX_TEXTO, ORDEN_VACIA, textoDemasiadoLargo, SI_NO, type Orden, type OrdenInput, type SiNo } from '../lib/ordenes'
+import { ESTADOS, ESTADOS_DOCUM, ESTADOS_VISITA, LABELS, MAX_TEXTO, ORDEN_VACIA, fechaCierreAlGuardar, textoDemasiadoLargo, SI_NO, type Orden, type OrdenInput, type SiNo } from '../lib/ordenes'
 import { api } from '../data/api'
 import { numeroRepetido } from '../lib/filtros'
 import { usePlazosCtx } from '../hooks'
@@ -188,7 +188,7 @@ export function OrdenForm({ orden, onClose, onSaved, onDelete, onError, todas = 
       fecha_orden: f.fecha_orden,
       fecha_primera_actuacion: f.fecha_primera_actuacion,
       fecha_ultima_actuacion: f.fecha_ultima_actuacion,
-      fecha_cierre: f.estado === 'FINALIZADA' ? f.fecha_cierre : null,
+      fecha_cierre: fechaCierreAlGuardar(f.estado, f.fecha_cierre),
       objeto: t(f.objeto),
       estado_docum: f.estado_docum,
       estado_visita: f.estado_visita,

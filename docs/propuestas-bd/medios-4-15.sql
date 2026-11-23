@@ -140,3 +140,21 @@ order by veces desc;
 -- Mientras no se aplique, la app funciona igual (solo avisa al escribir el nº).
 create unique index if not exists ordenes_num_orden_unico on public.ordenes (lower(btrim(num_orden)));
 -- Si alguna vez se guardan dos a la vez, la app mostrará «Ya existe un registro igual.».
+
+
+-- -------------------------------------------------------------------------------------
+-- #13 · (Opcional) Fecha de cierre con el «hoy» de España
+-- -------------------------------------------------------------------------------------
+-- La web y ChatGPT ya mandan la fecha de hoy de España al finalizar una orden. Esto solo cubre
+-- el caso de que algo la deje vacía: «current_date» es el día en UTC (entre las 00:00 y las
+-- 01:00/02:00 de España sería el día anterior). Misma función de siempre con la hora de Madrid.
+create or replace function public.set_fecha_cierre() returns trigger
+language plpgsql set search_path = '' as $$
+begin
+  if new.estado = 'FINALIZADA' then
+    if new.fecha_cierre is null then new.fecha_cierre = (now() at time zone 'Europe/Madrid')::date; end if;
+  else
+    new.fecha_cierre = null;
+  end if;
+  return new;
+end; $$;
