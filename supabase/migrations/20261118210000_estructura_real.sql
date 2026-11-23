@@ -1,7 +1,24 @@
+-- ⚠️  AVISO: NO VOLVER A EJECUTAR ESTE FICHERO A MANO. ⚠️
+-- Es una migración ANTIGUA (ya aplicada) que RECREA la tabla de órdenes: si se ejecutara con datos,
+-- borraría todas las órdenes y, en cascada, sus visitas, tareas e historial.
+-- Por eso ahora (auditoría #8) se para sola con un error si la tabla tiene alguna fila, sin tocar nada.
+--
 -- Ajuste a la estructura del Excel real (hoja "Hoja 1").
 -- La tabla anterior estaba vacía, así que se recrea.
-drop view if exists public.ordenes_calc;
-drop table if exists public.ordenes;
+do $$
+declare
+  hay_datos boolean := false;
+begin
+  if to_regclass('public.ordenes') is not null then
+    execute 'select exists (select 1 from public.ordenes)' into hay_datos;
+  end if;
+  if hay_datos then
+    raise exception 'ALTO: public.ordenes tiene datos. Esta migración antigua la recrearía y BORRARÍA todas las órdenes (y sus visitas, tareas e historial). No se ha cambiado nada.';
+  end if;
+  -- Solo llega aquí si la tabla no existe o está vacía
+  drop view if exists public.ordenes_calc;
+  drop table if exists public.ordenes;
+end $$;
 drop type if exists estado_orden;
 drop type if exists estado_docum;
 drop type if exists estado_visita;

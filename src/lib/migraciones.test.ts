@@ -46,6 +46,18 @@ describe('migraciones', () => {
     }
     expect((s.match(/security definer/g) ?? []).length).toBe([...s.matchAll(/create or replace function public\.(\w+)\([^)]*\)[^$]*?security definer/g)].length)
   })
+  it('la migración antigua que recrea «ordenes» se para si la tabla tiene datos', () => {
+    const sql = sinComentarios(Object.entries(ficheros).find(([f]) => f.includes('20261118210000'))![1]).toLowerCase()
+    const bloque = sql.indexOf('do $$')
+    const fin = sql.indexOf('end $$;')
+    expect(bloque).toBeGreaterThanOrEqual(0)
+    expect(sql).toContain('raise exception')
+    // El único «drop table» está dentro del bloque de comprobación
+    for (const m of sql.matchAll(/drop\s+table/g)) {
+      expect(m.index!).toBeGreaterThan(bloque)
+      expect(m.index!).toBeLessThan(fin)
+    }
+  })
   it('los festivos de la migración son exactamente los de festivosAlbacete.ts', () => {
     const sql = Object.entries(ficheros).find(([f]) => f.includes('calendario_fase1'))![1]
     const enSql = [...sql.matchAll(/\('(\d{4}-\d{2}-\d{2})', '((?:[^']|'')+)', '(\w+)', '([^']*)'\)/g)].map((m) => ({

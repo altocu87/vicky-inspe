@@ -59,7 +59,7 @@ Para probar las pantallas sin datos reales: `VITE_DEMO=1 npm run dev` (datos inv
 
 ## Base de datos
 
-Las migraciones están en `supabase/migrations` (se pueden ejecutar dos veces sin romper nada y nunca borran datos). La conversión única de `fecha_visita` está aparte, en `supabase/conversiones/`. Para aplicar las migraciones:
+Las migraciones están en `supabase/migrations`. Desde la 4.ª en adelante se pueden ejecutar dos veces sin romper nada y no borran datos (lo comprueba `src/lib/migraciones.test.ts`). **Las tres primeras son antiguas y no cumplen esa regla**: en especial `20261118210000_estructura_real.sql` recrea la tabla de órdenes (borraría todas las órdenes y, en cascada, sus visitas, tareas e historial); ahora se para sola con un error si la tabla tiene datos, pero **no la vuelvas a ejecutar a mano**. Las migraciones ya aplicadas no se repiten. La conversión única de `fecha_visita` está aparte, en `supabase/conversiones/`. Para aplicar las migraciones:
 
 ```bash
 supabase link --project-ref <ref>
