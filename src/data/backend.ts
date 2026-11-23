@@ -14,7 +14,8 @@ export interface Backend {
   sesion(): Promise<Session | null>
   alCambiarSesion(fn: (s: Session | null) => void): () => void
   entrar(email: string, password: string): Promise<string | null>
-  salir(): Promise<void>
+  /** Cierra la sesión. Devuelve null si fue bien, o un aviso si solo se pudo cerrar en este navegador */
+  salir(): Promise<string | null>
   listarOrdenes(): Promise<Resultado<Orden[]>>
   crearOrden(payload: Partial<Orden>): Promise<Resultado<Orden>>
   actualizarOrden(id: string, payload: Partial<Orden>): Promise<Resultado<Orden>>

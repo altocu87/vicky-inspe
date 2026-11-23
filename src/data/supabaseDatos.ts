@@ -54,7 +54,12 @@ export function crearBackendSupabase(supabase: SupabaseClient): Backend {
       return error ? 'Correo o contraseña incorrectos' : null
     },
     async salir() {
-      await supabase.auth.signOut()
+      const { error } = await supabase.auth.signOut()
+      if (!error) return null
+      // Plan B: si el servidor no responde, al menos se borra la sesión de este navegador
+      const local = await supabase.auth.signOut({ scope: 'local' })
+      if (local.error) return 'No se pudo cerrar la sesión: ' + mensajeError(local.error)
+      return 'La sesión se ha cerrado en este navegador, pero no se pudo avisar al servidor (' + mensajeError(error) + '). Si la tenías abierta en otro dispositivo, ciérrala también allí.'
     },
 
     async listarOrdenes() {

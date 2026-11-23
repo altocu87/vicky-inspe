@@ -153,7 +153,9 @@ export const backendDemo: Backend = {
   async entrar() {
     return null
   },
-  async salir() {},
+  async salir() {
+    return null
+  },
   async listarOrdenes() {
     await espera()
     return { data: [...ordenes], error: null }

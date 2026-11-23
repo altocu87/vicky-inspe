@@ -145,6 +145,8 @@ function SortMenu({ actual, onPick, conTexto }: { actual: string; onPick: (id: s
 
 export default function App() {
   const [session, setSession] = useState<Session | null | undefined>(undefined)
+  // Aviso para la pantalla de entrada si al cerrar sesión algo no fue del todo bien
+  const [avisoSalida, setAvisoSalida] = useState<string | undefined>(undefined)
 
   useEffect(() => {
     let quitar = () => {}
@@ -167,11 +169,11 @@ export default function App() {
         <span />
       </div>
     )
-  if (!session) return <Login />
-  return <Panel email={session.user.email ?? ''} />
+  if (!session) return <Login aviso={avisoSalida} />
+  return <Panel email={session.user.email ?? ''} onAvisoSalida={setAvisoSalida} />
 }
 
-function Panel({ email }: { email: string }) {
+function Panel({ email, onAvisoSalida }: { email: string; onAvisoSalida: (aviso: string) => void }) {
   const mobile = useMobile()
   const [ordenes, setOrdenes] = useState<Orden[]>([])
   const [loading, setLoading] = useState(true)
@@ -367,7 +369,13 @@ function Panel({ email }: { email: string }) {
 
   const sortActual = SORTS_MOVIL.find((s) => s.sort.key === sort.key && s.sort.dir === sort.dir)?.id ?? ''
   const enCal = pantalla === 'calendario'
-  const salir = async () => (await api()).salir()
+  const salir = async () => {
+    const aviso = await (await api()).salir()
+    if (aviso) {
+      onAvisoSalida(aviso)
+      showSnack({ msg: aviso, err: true })
+    }
+  }
 
   const enStats = pantalla === 'stats'
   const enLista = !enCal && !enStats
