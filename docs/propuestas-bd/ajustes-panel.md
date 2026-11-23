@@ -27,18 +27,15 @@ no lo lee.
 La app no tiene pantalla para cambiar la contraseña (se hace desde el correo de «recuperar contraseña»
 o desde el panel), así que todo se ajusta en Supabase:
 
+> Decisión de la usuaria (23-11-2026): se mantiene la contraseña actual y **no** se cambian la
+> longitud mínima ni los requisitos de la contraseña. Solo se activa la confirmación de cambios.
+
 1. **Authentication → Providers → Email** (o **Authentication → Sign In / Providers → Email**):
-   - **Minimum password length**: `12`.
-   - **Password requirements**: «Letters and digits» (letras y números) como mínimo.
    - **Secure password change**: activado (para cambiar la contraseña hay que haber entrado hace poco
      o confirmar con un código).
    - **Secure email change**: activado (el cambio de correo se confirma en el correo viejo y en el nuevo).
-2. **Authentication → Attack Protection** (o «Policies / Security»):
-   - **Leaked password protection** (comprobar contraseñas filtradas, HaveIBeenPwned): activado.
-     *Puede necesitar un plan de pago (Pro); si no aparece o está bloqueado, no pasa nada.*
-3. **Cambia tu contraseña** si la actual tiene menos de 12 caracteres o no mezcla letras y números:
-   la regla nueva solo se aplica al poner una contraseña nueva; la vieja sigue valiendo hasta entonces.
-   Usa una frase larga o un gestor de contraseñas.
-4. *(Opcional, más adelante)* **Doble factor (MFA, app de códigos)**: Authentication → Multi-Factor.
+2. *(Opcional)* **Authentication → Attack Protection**: **Leaked password protection** (avisa si una
+   contraseña nueva aparece en filtraciones conocidas). Puede necesitar plan de pago; si no aparece, no pasa nada.
+3. *(Opcional, más adelante)* **Doble factor (MFA, app de códigos)**: Authentication → Multi-Factor.
    La app todavía no tiene la pantalla para pedir el código, así que **no lo actives** hasta que se
    programe; queda anotado como mejora.
