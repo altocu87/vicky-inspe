@@ -1,7 +1,7 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { lazy, Suspense, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { api } from './data/api'
-import { PlazosCtx, useMobile, usePref } from './hooks'
+import { PlazosCtx, useEstable, useMobile, usePref } from './hooks'
 import { celdaCsv } from './lib/csv'
 import { addDias, hoyIso } from './lib/fechas'
 import { FESTIVOS_ALBACETE } from './lib/festivosAlbacete'
@@ -256,32 +256,38 @@ function Panel({ email }: { email: string }) {
   const tiposPlazo = useMemo(() => reglas.filter((r) => r.activa && 'evento' in r.partida).map((r) => ('evento' in r.partida ? r.partida.evento : '')), [reglas])
   const agenda = useAgendaEstado(hoy, avisar, tiposPlazo)
   // Las reglas que cuentan desde una cita usan las citas no canceladas de cada orden
-  const eventosPlazos = useMemo(
+  const eventosPlazosNuevos = useMemo(
     () =>
       tiposPlazo.length
         ? agenda.eventos.filter((e) => e.orden_id && e.estado !== 'cancelada' && tiposPlazo.includes(e.tipo)).map((e) => ({ orden_id: e.orden_id!, tipo: e.tipo, fecha: e.fecha }))
         : undefined,
     [agenda.eventos, tiposPlazo],
   )
+  // Solo cambia (y con él el contexto y todos los plazos) si cambian las citas que cuentan
+  const eventosPlazos = useEstable(eventosPlazosNuevos, eventosPlazosNuevos ? eventosPlazosNuevos.map((e) => `${e.orden_id}|${e.tipo}|${e.fecha}`).join(',') : '-')
   const ctx = useMemo<ContextoPlazos>(() => ({ hoy, reglas, festivos: mapaFestivos(festivos), eventos: eventosPlazos }), [hoy, reglas, festivos, eventosPlazos])
 
   const stats = useMemo(() => contarEstados(ordenes, ctx), [ordenes, ctx])
 
+  // La búsqueda filtra con un valor «diferido»: el cuadro de texto responde al instante y la lista se pone al día después
+  const qDiferida = useDeferredValue(q)
   const visibles = useMemo(() => {
-    const f = { q, filtro, ocultarFin }
+    const f = { q: qDiferida, filtro, ocultarFin }
     const list = ordenes.filter((o) => pasaFiltros(o, f, ctx))
     const m = sort.dir === 'asc' ? 1 : -1
+    // La clave de cada orden se calcula una vez antes de ordenar (no dentro del comparador)
+    const clave = new Map(list.map((o) => [o, valorOrden(o, sort.key, ctx, agenda.proximas)]))
     return list.sort((a, b) => {
-      const va = valorOrden(a, sort.key, ctx, agenda.proximas)
-      const vb = valorOrden(b, sort.key, ctx, agenda.proximas)
+      const va = clave.get(a)!
+      const vb = clave.get(b)!
       if (va === vb) return (b.fecha_orden ?? '').localeCompare(a.fecha_orden ?? '')
       if (va === null) return 1
       if (vb === null) return -1
       if (typeof va === 'number' && typeof vb === 'number') return (va - vb) * m
       return String(va).localeCompare(String(vb), 'es', { numeric: true }) * m
     })
-  }, [ordenes, q, filtro, ocultarFin, sort, ctx, agenda.proximas])
-  const filtros = useMemo(() => ({ q, filtro, ocultarFin }), [q, filtro, ocultarFin])
+  }, [ordenes, qDiferida, filtro, ocultarFin, sort, ctx, agenda.proximas])
+  const filtros = useMemo(() => ({ q: qDiferida, filtro, ocultarFin }), [qDiferida, filtro, ocultarFin])
 
   function elegirFiltro(f: Filtro) {
     const nuevo = filtro === f ? 'todos' : f
