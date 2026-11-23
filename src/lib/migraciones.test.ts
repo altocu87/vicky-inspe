@@ -142,4 +142,8 @@ describe('cabeceras de seguridad', () => {
     expect(csp).toContain("object-src 'none'")
     expect(h['X-Frame-Options']).toBe('DENY')
   })
+  it('los archivos con huella (/assets) se guardan en caché un año', () => {
+    const assets = vercel.headers.find((x) => x.source === '/assets/(.*)')
+    expect(assets?.headers).toEqual([{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }])
+  })
 })
