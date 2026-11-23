@@ -4,6 +4,7 @@ import { plazosDe } from '../lib/plazos/motor'
 import { Plazo } from './Plazo'
 import { BotonVerCalendario } from './plazos'
 import { ESTADO_CLASE, ESTADO_ICONO } from './estados'
+import { MarcaRepetida } from './NumOrden'
 
 export function OrdenCard({ orden, onOpen, index }: { orden: Orden; onOpen: () => void; index: number }) {
   const fin = orden.estado === 'FINALIZADA'
@@ -26,7 +27,7 @@ export function OrdenCard({ orden, onOpen, index }: { orden: Orden; onOpen: () =
         <div className="card-head">
           <div>
             <span className="label-m mono muted">
-              {orden.num_orden} · {fmt(orden.fecha_orden)}
+              {orden.num_orden} <MarcaRepetida id={orden.id} num={orden.num_orden} /> · {fmt(orden.fecha_orden)}
             </span>
             <h3 className="empresa">{orden.empresa}</h3>
           </div>

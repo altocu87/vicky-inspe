@@ -23,6 +23,41 @@ export function numeroRepetido(num: string, ordenes: readonly Orden[], excluir?:
   return ordenes.find((o) => o.id !== excluir && normal(o.num_orden.trim()) === n) ?? null
 }
 
+/** Posición de una orden entre las que comparten nº: `n`ª de `total` (por orden de creación) */
+export type Repeticion = { n: number; total: number }
+
+/**
+ * Órdenes con nº repetido → qué número de repetición es cada una (1ª, 2ª…), por fecha de creación.
+ * Las que no se repiten no aparecen en el mapa. Misma comparación que `numeroRepetido`.
+ */
+export function repeticionesDeNumero(ordenes: readonly Orden[]): Map<string, Repeticion> {
+  const grupos = new Map<string, Orden[]>()
+  for (const o of ordenes) {
+    const k = normal(o.num_orden.trim())
+    if (!k) continue
+    const g = grupos.get(k)
+    if (g) g.push(o)
+    else grupos.set(k, [o])
+  }
+  const res = new Map<string, Repeticion>()
+  for (const g of grupos.values()) {
+    if (g.length < 2) continue
+    g.sort((a, b) => (a.created_at || '').localeCompare(b.created_at || '') || a.id.localeCompare(b.id))
+    g.forEach((o, i) => res.set(o.id, { n: i + 1, total: g.length }))
+  }
+  return res
+}
+
+/** Texto de la marca de repetición, p. ej. «2.ª» */
+export const ordinal = (n: number) => `${n}.ª`
+
+/** Cuántas órdenes (sin contar `excluir`) tienen ya ese nº */
+export function cuantasConNumero(num: string, ordenes: readonly Orden[], excluir?: string): number {
+  const n = normal(num.trim())
+  if (!n) return 0
+  return ordenes.filter((o) => o.id !== excluir && normal(o.num_orden.trim()) === n).length
+}
+
 export function nivelOrden(o: Orden, ctx: ContextoPlazos): Nivel | null {
   return o.estado === 'FINALIZADA' ? null : peorNivelDe(o, ctx)
 }

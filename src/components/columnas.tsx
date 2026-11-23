@@ -5,6 +5,7 @@ import { plazoActivoDe, plazoDe, proximoPlazo, type ContextoPlazos, type PlazoCa
 import type { Evento } from '../lib/eventos'
 import { ESTADO_CLASE } from './estados'
 import { Dias, ProximaVisita, SiNoCell } from './celdas'
+import { NumOrden } from './NumOrden'
 
 export type SortKey =
   | 'num_orden'
@@ -43,7 +44,7 @@ export type Col = {
 const txt = (v: string | null) => (v ? <span className="clip">{v}</span> : <span className="muted">—</span>)
 
 export const COLUMNAS: Col[] = [
-  { key: 'num_orden', label: 'Nº orden', width: 128, fixed: true, render: (o) => <span className="mono">{o.num_orden}</span> },
+  { key: 'num_orden', label: 'Nº orden', width: 128, fixed: true, render: (o) => <NumOrden o={o} /> },
   {
     key: 'empresa',
     label: 'Empresa',

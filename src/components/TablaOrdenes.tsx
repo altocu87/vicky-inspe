@@ -7,6 +7,7 @@ import { BotonProgramar, BotonVerCalendario, MarcaInhabil } from './plazos'
 import { useAgenda } from '../state/agenda'
 import { COLUMNAS, proximoOtros, type Sort, type SortKey } from './columnas'
 import { ProximaVisita } from './celdas'
+import { NumOrden } from './NumOrden'
 
 export type { Sort, SortKey } from './columnas'
 
@@ -167,7 +168,7 @@ export function ListaMovil({ ordenes, onOpen }: { ordenes: Orden[]; onOpen: (o: 
                 <span className={`badge sm ${ESTADO_CLASE[o.estado]}`}>{label(o.estado)}</span>
               </div>
               <div className="mrow-sub">
-                <span className="mono">{o.num_orden}</span>
+                <NumOrden o={o} />
                 <span aria-hidden>·</span>
                 <span>{fmtCorta(o.fecha_orden)}</span>
               </div>

@@ -120,6 +120,8 @@ alter table public.ordenes add constraint ordenes_longitud_textos check (
 
 -- -------------------------------------------------------------------------------------
 -- #12 · Que no pueda haber dos órdenes con el mismo nº
+-- ⚠️ DESCARTADO (23-11-2026): la usuaria prefiere permitir nº repetidos (la app avisa y los marca «1.ª», «2.ª»…).
+-- NO aplicar el índice único de este bloque.
 -- -------------------------------------------------------------------------------------
 -- La web y ChatGPT ya avisan si el nº existe, pero la base de datos no lo impide (por ejemplo,
 -- si se guardan dos a la vez). Se compara igual que la app: sin mayúsculas y sin espacios a los lados.

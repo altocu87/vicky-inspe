@@ -1,4 +1,5 @@
 // Hooks compartidos por varias pantallas.
+import type { Repeticion } from './lib/filtros'
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
 import { hoyIso } from './lib/fechas'
 import { contextoBase, type ContextoPlazos } from './lib/plazos/motor'
@@ -42,6 +43,10 @@ export function useMobile() {
 /** Contexto de plazos (hoy, reglas y festivos) compartido por todas las pantallas */
 export const PlazosCtx = createContext<ContextoPlazos>(contextoBase(hoyIso()))
 export const usePlazosCtx = () => useContext(PlazosCtx)
+
+/** Órdenes con nº repetido: id → «n.ª de total» (calculado una vez en App con todas las órdenes) */
+export const RepetidosCtx = createContext<ReadonlyMap<string, Repeticion>>(new Map())
+export const useRepetidos = () => useContext(RepetidosCtx)
 
 /**
  * Llama a `fn` al volver a la pestaña o a la app (pasa a visible), como mucho una vez cada `minMs`

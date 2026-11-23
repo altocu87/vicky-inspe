@@ -195,12 +195,14 @@ describe('lectura: no escribe nada y da lo justo', () => {
 
 // ---------------------------------------------------------------------------------------------
 describe('escritura: solo lo pedido y solo campos permitidos', () => {
-  it('crear_orden: crea una y no repite nº de orden', async () => {
+  it('crear_orden: crea una y, si el nº se repite, la crea igual y avisa', async () => {
     const d = datosPrueba()
     const t = await llamar('crear_orden', { num_orden: 'PRUEBA/009', empresa: 'Nueva Inventada SL' }, d)
     expect(t).toContain('Orden creada: PRUEBA/009')
     expect(d.escrituras[0].datos.fecha_orden).toBe('2026-11-20')
-    await expect(llamar('crear_orden', { num_orden: 'prueba/001', empresa: 'X' }, d)).rejects.toThrow(/Ya existe/)
+    const r = await llamar('crear_orden', { num_orden: 'prueba/001', empresa: 'X' }, d)
+    expect(r).toContain('Orden creada')
+    expect(r).toMatch(/Nº repetido: es la 2\.ª/)
   })
   it('editar_orden: solo escribe campos de la lista blanca y dice qué cambió', async () => {
     const d = datosPrueba()

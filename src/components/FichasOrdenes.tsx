@@ -11,6 +11,7 @@ import { ESTADO_CLASE } from './estados'
 import { BotonProgramar, BotonVerCalendario, MarcaInhabil } from './plazos'
 import { ProximaVisita } from './celdas'
 import { proximoOtros } from './columnas'
+import { NumOrden } from './NumOrden'
 
 /** Una línea «etiqueta · valor» */
 function Linea({ k, children, prox }: { k: string; children: ReactNode; prox?: boolean }) {
@@ -91,7 +92,7 @@ function Ficha({ o, ctx, prox, onOpen }: { o: Orden; ctx: ContextoPlazos; prox: 
     >
       {/* 1 · Orden */}
       <div className="f-quien">
-        <span className="mono f-num">{o.num_orden}</span>
+        <NumOrden o={o} className="mono f-num" />
         <span className="f-emp" title={o.empresa}>
           {o.empresa}
         </span>

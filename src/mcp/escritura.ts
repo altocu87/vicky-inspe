@@ -60,8 +60,8 @@ export const crearOrden = herramienta({
   clase: 'alta',
   async ejecutar(a, ctx) {
     const lista = await ordenes(ctx)
-    const repetida = lista.find((o) => normal(o.num_orden) === normal(a.num_orden))
-    if (repetida) throw new ErrorHerramienta(`Ya existe la orden ${lineaOrden(repetida)} (id: ${repetida.id}). No se ha creado otra.`)
+    // Nº repetido: se permite (como en la web), pero se avisa de que es la n.ª con ese nº
+    const mismas = lista.filter((o) => normal(o.num_orden) === normal(a.num_orden))
     const payload: Partial<Orden> = {
       ...ORDEN_VACIA,
       num_orden: a.num_orden,
@@ -74,7 +74,10 @@ export const crearOrden = herramienta({
     }
     const o = await leer(ctx.datos.crearOrden(payload))
     ctx.cache.delete('ordenes')
-    return `Orden creada: ${lineaOrden(o)} · fecha de la orden ${dma(o.fecha_orden)} · id: ${o.id}`
+    const aviso = mismas.length
+      ? `\n⚠️ Nº repetido: es la ${mismas.length + 1}.ª orden con este nº (ya existía: ${mismas.map(lineaOrden).join('; ')}).`
+      : ''
+    return `Orden creada: ${lineaOrden(o)} · fecha de la orden ${dma(o.fecha_orden)} · id: ${o.id}${aviso}`
   },
 })
 
@@ -131,14 +134,15 @@ export const editarOrden = herramienta({
     const o = await buscarOrden(ctx, a)
     // Lista blanca (por si acaso, además del esquema estricto)
     const cambios = Object.fromEntries(Object.entries(a.cambios).filter(([k, v]) => (CAMPOS_EDITABLES as readonly string[]).includes(k) && v !== undefined)) as Partial<Orden>
+    let avisoNum = ''
     if (cambios.num_orden && normal(cambios.num_orden) !== normal(o.num_orden)) {
       const otra = (await ordenes(ctx)).find((x) => x.id !== o.id && normal(x.num_orden) === normal(cambios.num_orden!))
-      if (otra) throw new ErrorHerramienta(`Ya existe otra orden con el nº ${cambios.num_orden}.`)
+      if (otra) avisoNum = `\n⚠️ Nº repetido: ya existe otra orden con el nº ${cambios.num_orden} (${lineaOrden(otra)}).`
     }
     const nueva = await leer(ctx.datos.actualizarOrden(o.id, cambios))
     ctx.cache.delete('ordenes')
     const dif = cambiosTexto(o, nueva, CAMPOS_EDITABLES)
-    return dif.length ? `Orden ${lineaOrden(nueva)} actualizada:\n${dif.map((d) => '• ' + d).join('\n')}` : `No había nada que cambiar en ${lineaOrden(nueva)}.`
+    return (dif.length ? `Orden ${lineaOrden(nueva)} actualizada:\n${dif.map((d) => '• ' + d).join('\n')}` : `No había nada que cambiar en ${lineaOrden(nueva)}.`) + avisoNum
   },
 })
 

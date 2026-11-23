@@ -1,12 +1,12 @@
 import { lazy, Suspense, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { api, type Resultado } from './data/api'
-import { PlazosCtx, useAlVolver, useEstable, useMobile, usePref } from './hooks'
+import { PlazosCtx, RepetidosCtx, useAlVolver, useEstable, useMobile, usePref } from './hooks'
 import { celdaCsv } from './lib/csv'
 import { addDias, hoyIso } from './lib/fechas'
 import { FESTIVOS_ALBACETE } from './lib/festivosAlbacete'
 import { mapaFestivos, type Festivo } from './lib/habiles'
-import { contarEstados, nombreFiltro, pasaFiltros, type Filtro } from './lib/filtros'
+import { contarEstados, nombreFiltro, pasaFiltros, repeticionesDeNumero, type Filtro } from './lib/filtros'
 import { ESTADOS, diasMinimos, fmtCorta, type Orden } from './lib/ordenes'
 import { plazoActivoDe, proximoPlazo, type ContextoPlazos } from './lib/plazos/motor'
 import { combinarReglas, type ReglaFila } from './lib/plazos/reglas'
@@ -185,6 +185,8 @@ export default function App() {
 function Panel({ email, onAvisoSalida }: { email: string; onAvisoSalida: (aviso: string) => void }) {
   const mobile = useMobile()
   const [ordenes, setOrdenes] = useState<Orden[]>([])
+  // Nº repetidos: qué número de repetición es cada orden (1.ª, 2.ª…)
+  const repetidos = useMemo(() => repeticionesDeNumero(ordenes), [ordenes])
   const [loading, setLoading] = useState(true)
   // Si falla la carga de las órdenes, se dice claramente (no se confunde con «no hay órdenes»)
   const [errorCarga, setErrorCarga] = useState<string | null>(null)
@@ -520,12 +522,14 @@ function Panel({ email, onAvisoSalida }: { email: string; onAvisoSalida: (aviso:
   if (pantalla === 'ajustes')
     return (
       <PlazosCtx.Provider value={ctx}>
+      <RepetidosCtx.Provider value={repetidos}>
         <AgendaCtx.Provider value={agenda}>
           <Suspense fallback={CARGANDO}>
             <Ajustes festivos={festivos} festivosDeSerie={festivosDeSerie} reglas={reglas} onBack={volver} onCambio={cargarConfig} avisar={(msg, err) => showSnack({ msg, err })} />
           </Suspense>
           {snack && <SnackBar snack={snack} cerrar={() => setSnack(null)} />}
         </AgendaCtx.Provider>
+      </RepetidosCtx.Provider>
       </PlazosCtx.Provider>
     )
 
@@ -549,6 +553,7 @@ function Panel({ email, onAvisoSalida }: { email: string; onAvisoSalida: (aviso:
 
   return (
     <PlazosCtx.Provider value={ctx}>
+      <RepetidosCtx.Provider value={repetidos}>
      <AgendaCtx.Provider value={agenda}>
       <GestorAgenda ordenes={ordenes} festivos={ctx.festivos} abrirOrden={setEditing} actualizarOrden={actualizarOrden} avisar={avisar}>
       <div className={`app${!mobile && enLista ? ' wide' : ''}`}>
@@ -768,7 +773,8 @@ function Panel({ email, onAvisoSalida }: { email: string; onAvisoSalida: (aviso:
       </div>
       </GestorAgenda>
      </AgendaCtx.Provider>
-    </PlazosCtx.Provider>
+    </RepetidosCtx.Provider>
+      </PlazosCtx.Provider>
   )
 }
 

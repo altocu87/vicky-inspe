@@ -472,3 +472,16 @@ dialog.small .dlg-body { gap: 12px; }
 /* Pantalla de error general (ErrorBoundary): misma tarjeta que la de entrar */
 .error-app-icono { width: 64px; height: 64px; border-radius: 22px; display: grid; place-items: center; background: var(--error-container); color: var(--on-error-container); }
 .error-app-icono .icon { font-size: 34px; }
+
+/* Nº de orden repetido: marca «2.ª» junto al nº */
+.num-orden { display: inline-flex; align-items: center; gap: 4px; min-width: 0; }
+.num-rep {
+  display: inline-flex; align-items: center; padding: 0 6px; border-radius: 999px;
+  font-size: 11px; font-weight: 700; line-height: 18px; white-space: nowrap;
+  background: var(--tertiary-container, var(--secondary-container)); color: var(--on-tertiary-container, var(--on-secondary-container));
+}
+.field.aviso .help {
+  display: flex; gap: 6px; align-items: flex-start; margin-top: 6px; padding: 8px 10px; border-radius: 12px;
+  background: var(--warn-container); color: var(--on-warn-container); font-weight: 500;
+}
+.field.aviso .help .icon { font-size: 18px; }

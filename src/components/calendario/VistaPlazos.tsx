@@ -9,6 +9,7 @@ import { NIVELES, NOMBRE_NIVEL, type Nivel } from '../../lib/plazos/motor'
 import { ESTADO_CLASE } from '../estados'
 import { textoInhabil } from '../../lib/habiles'
 import { MarcaInhabil } from '../plazos'
+import { NumOrden } from '../NumOrden'
 
 const ICONO_NIVEL: Record<Nivel, string> = { vencido: 'error', urgente: 'warning', medio: 'schedule', ok: 'check_circle' }
 
@@ -154,7 +155,7 @@ function LineaItem({ l, onOpen }: { l: LineaPlazo; onOpen: (o: Orden) => void })
         <span className="pcuerpo">
           <span className="pemp">{o.empresa}</span>
           <span className="psub">
-            <span className="mono">{o.num_orden}</span>
+            <NumOrden o={o} />
             <span className={`badge sm ${ESTADO_CLASE[o.estado]}`}>{p.regla.nombre}</span>
           </span>
           {p.inhabil && <MarcaInhabil inhabil={p.inhabil} conTexto />}

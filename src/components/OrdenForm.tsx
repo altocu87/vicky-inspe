@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { ESTADOS, ESTADOS_DOCUM, ESTADOS_VISITA, LABELS, MAX_TEXTO, ORDEN_VACIA, fechaCierreAlGuardar, textoDemasiadoLargo, SI_NO, type Orden, type OrdenInput, type SiNo } from '../lib/ordenes'
 import { api } from '../data/api'
-import { numeroRepetido } from '../lib/filtros'
+import { cuantasConNumero, numeroRepetido, ordinal } from '../lib/filtros'
 import { usePlazosCtx } from '../hooks'
 import { NOMBRE_CAMPO } from '../lib/plazos/reglas'
 import { plazosDe } from '../lib/plazos/motor'
@@ -68,6 +68,7 @@ function Field({
   multiline,
   error: errorDado,
   help: ayuda,
+  aviso,
   placeholder,
   autoFocus,
   trailing,
@@ -81,6 +82,8 @@ function Field({
   multiline?: boolean
   error?: string | null
   help?: string
+  /** Aviso que no impide guardar (se ve en ámbar) */
+  aviso?: string
   placeholder?: string
   autoFocus?: boolean
   trailing?: React.ReactNode
@@ -92,7 +95,7 @@ function Field({
   // Cerca del límite se ve cuánto queda
   const help = ayuda || (max && largo > max * 0.9 ? `${largo} de ${max} caracteres` : undefined)
   return (
-    <div className={`field${error ? ' error' : ''}${trailing ? ' has-trailing' : ''}`}>
+    <div className={`field${error ? ' error' : ''}${!error && aviso ? ' aviso' : ''}${trailing ? ' has-trailing' : ''}`}>
       <label htmlFor={id}>{label}</label>
       {multiline ? (
         <textarea id={id} value={value ?? ''} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} rows={2} maxLength={max} aria-invalid={!!error} />
@@ -110,7 +113,12 @@ function Field({
         />
       )}
       {trailing}
-      {(error || help) && <span className="help">{error || help}</span>}
+      {(error || aviso || help) && (
+        <span className="help" role={!error && aviso ? 'status' : undefined}>
+          {!error && aviso && <span className="icon" aria-hidden>warning</span>}
+          {error || aviso || help}
+        </span>
+      )}
     </div>
   )
 }
@@ -152,7 +160,14 @@ export function OrdenForm({ orden, onClose, onSaved, onDelete, onError, todas = 
   const dirty = JSON.stringify(f) !== JSON.stringify(inicial)
   // Nº repetido: se avisa al escribirlo, sin esperar a guardar
   const repetida = numeroRepetido(f.num_orden, todas, orden?.id, orden?.num_orden)
-  const errNum = tried && !f.num_orden.trim() ? 'Obligatorio' : repetida ? `Ya existe una orden con este nº (${repetida.empresa})` : null
+  // Se permite guardar: solo se avisa de que será la «n.ª» orden con ese nº
+  const errNum = tried && !f.num_orden.trim() ? 'Obligatorio' : null
+  const avisoNum = repetida
+    ? (() => {
+        const ya = cuantasConNumero(f.num_orden, todas, orden?.id)
+        return `Atención: ya hay ${ya === 1 ? 'otra orden' : `${ya} órdenes`} con este nº (${repetida.empresa}). Se puede guardar igual: quedará como la ${ordinal(ya + 1)} con este nº.`
+      })()
+    : undefined
   const errEmp = tried && !f.empresa.trim() ? 'Obligatorio' : null
 
   function cerrar() {
@@ -176,7 +191,6 @@ export function OrdenForm({ orden, onClose, onSaved, onDelete, onError, todas = 
     e.preventDefault()
     setTried(true)
     if (!f.num_orden.trim() || !f.empresa.trim()) return
-    if (repetida) return onError(`Ya existe otra orden con el nº ${repetida.num_orden}. Cambia el nº o abre la que ya existe.`)
     // Textos que pasan del límite (p. ej. heredados del Excel): se marcan en rojo y no se guarda
     if (textoDemasiadoLargo(f)) return onError('Hay un texto demasiado largo (marcado en rojo). Acórtalo para poder guardar.')
     setSaving(true)
@@ -272,6 +286,7 @@ export function OrdenForm({ orden, onClose, onSaved, onDelete, onError, todas = 
                 onChange={(v) => set('num_orden', v)}
                 placeholder="2/0004814/24"
                 error={errNum}
+                aviso={avisoNum}
                 autoFocus={nueva}
                 max={MAX_TEXTO.num_orden}
               />

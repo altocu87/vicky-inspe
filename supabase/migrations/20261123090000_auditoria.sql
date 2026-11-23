@@ -62,15 +62,8 @@ alter table public.ordenes add constraint ordenes_longitud_textos check (
   and (tareas_pendientes is null or char_length(tareas_pendientes) <= 4000)
 ) not valid;
 
--- #12 · No puede haber dos órdenes con el mismo nº (solo si hoy no hay repetidos)
-do $$
-begin
-  if exists (select 1 from public.ordenes group by lower(btrim(num_orden)) having count(*) > 1) then
-    raise notice 'Hay números de orden repetidos: NO se crea el índice único (ver la consulta final).';
-  else
-    create unique index if not exists ordenes_num_orden_unico on public.ordenes (lower(btrim(num_orden)));
-  end if;
-end $$;
+-- #12 · DESCARTADO (decisión de la usuaria, 23-11-2026): se permiten nº de orden repetidos.
+-- La app avisa al escribirlo y marca cada una como «1.ª», «2.ª»… No se crea índice único.
 
 -- #13 · Fecha de cierre automática con el «hoy» de España
 create or replace function public.set_fecha_cierre() returns trigger
@@ -111,7 +104,6 @@ create index if not exists tipos_cita_created_by_idx on public.tipos_cita (creat
 
 commit;
 
--- Comprobación: si sale alguna fila, son nº de orden repetidos que hay que corregir a mano
--- (y después volver a ejecutar este script para que se cree el índice único).
+-- Comprobación (informativa): nº de orden repetidos. Están permitidos; la app los marca como «1.ª», «2.ª»…
 select lower(btrim(num_orden)) as numero_repetido, count(*) as veces
 from public.ordenes group by 1 having count(*) > 1;
