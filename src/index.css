@@ -468,3 +468,7 @@ dialog.small .dlg-body { gap: 12px; }
 .login-card .aviso-caja { align-items: flex-start; font-size: 14px; line-height: 20px; }
 
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* Pantalla de error general (ErrorBoundary): misma tarjeta que la de entrar */
+.error-app-icono { width: 64px; height: 64px; border-radius: 22px; display: grid; place-items: center; background: var(--error-container); color: var(--on-error-container); }
+.error-app-icono .icon { font-size: 34px; }
