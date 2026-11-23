@@ -30,7 +30,7 @@ export interface Backend {
   // ---- Fase 2: visitas y citas (eventos), tareas y tipos de cita ----
   /** Eventos que se ven entre dos días: los que caen dentro, las series que ya empezaron y sus excepciones */
   listarEventos(desde: string, hasta: string): Promise<Resultado<Evento[]>>
-  /** Visitas pendientes desde hoy enlazadas a una orden (para «Próxima visita» y «Por programar») */
+  /** Visitas pendientes desde hoy enlazadas a una orden, más las que se repiten y sus excepciones (para «Próxima visita» y «Por programar») */
   listarVisitasFuturas(hoy: string): Promise<Resultado<Evento[]>>
   /** Citas no canceladas de unos tipos (para las reglas de plazo que cuentan desde una cita) */
   listarEventosDeTipos(tipos: string[]): Promise<Resultado<Evento[]>>

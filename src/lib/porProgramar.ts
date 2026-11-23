@@ -3,6 +3,8 @@
 // - Tareas sin fecha (las «para la oficina» no: esas van al lunes).
 // Primero las órdenes, de la más urgente a la menos; después las tareas por prioridad.
 import type { Evento } from './eventos'
+import { addDias, diasEntre } from './fechas'
+import { diasDeSerie } from './repeticion'
 import type { Orden } from './ordenes'
 import { proximoPlazo, type ContextoPlazos, type PlazoCalc } from './plazos/motor'
 import { pesoPrioridad, type Tarea } from './tareas'
@@ -11,11 +13,32 @@ export const DIAS_POR_PROGRAMAR = 30
 
 export type ItemPorProgramar = { tipo: 'orden'; orden: Orden; plazo: PlazoCalc } | { tipo: 'tarea'; tarea: Tarea }
 
-/** Órdenes con alguna visita pendiente desde hoy */
-export function ordenesConVisitaFutura(eventos: readonly Pick<Evento, 'orden_id' | 'tipo' | 'fecha' | 'estado'>[], hoy: string): Set<string> {
-  const s = new Set<string>()
-  for (const e of eventos) if (e.orden_id && e.tipo === 'visita' && e.estado === 'pendiente' && e.fecha >= hoy) s.add(e.orden_id)
-  return s
+/**
+ * Lo que hay que cargar para saber las visitas futuras: visitas pendientes desde hoy, las visitas
+ * que se repiten (aunque empezaran antes de hoy) y las excepciones de sus días desde hoy
+ * (aunque estén canceladas o hechas, para no contar ese día de la serie).
+ */
+export function esVisitaFuturaOSerie(e: Evento, hoy: string): boolean {
+  if (e.tipo !== 'visita' || !e.orden_id) return false
+  if (e.serie_id) return (e.ocurrencia_original ?? '') >= hoy || (e.estado === 'pendiente' && e.fecha >= hoy)
+  return e.estado === 'pendiente' && (e.fecha >= hoy || !!e.rrule)
+}
+
+/** Hasta dónde se busca el siguiente día de una visita que se repite */
+const HORIZONTE_SERIE = 5 * 366
+
+/** Primer día desde hoy de una serie, sin los días quitados ni los sustituidos por una excepción */
+function primerDiaDeSerie(e: Evento, hoy: string, sustituidos: ReadonlySet<string>): string | null {
+  const quitados = new Set(e.exdates)
+  for (const d of diasDeSerie(e.fecha, e.rrule!, hoy, addDias(hoy, HORIZONTE_SERIE), 600)) {
+    if (!quitados.has(d) && !sustituidos.has(`${e.id}@${d}`)) return d
+  }
+  return null
+}
+
+/** Órdenes con alguna visita pendiente desde hoy (incluidas las visitas que se repiten) */
+export function ordenesConVisitaFutura(eventos: readonly Evento[], hoy: string): Set<string> {
+  return new Set(proximasVisitas(eventos, hoy).keys())
 }
 
 export function porProgramar(
@@ -38,13 +61,24 @@ export function porProgramar(
   return [...ords, ...tars]
 }
 
-/** Próxima visita pendiente de cada orden (desde hoy) */
+/**
+ * Próxima visita pendiente de cada orden (desde hoy). Las visitas que se repiten se despliegan:
+ * cuenta su siguiente día (se devuelve una copia con `fecha` de ese día), aunque la serie empezara antes.
+ */
 export function proximasVisitas(eventos: readonly Evento[], hoy: string): Map<string, Evento> {
   const m = new Map<string, Evento>()
-  for (const e of eventos) {
-    if (!e.orden_id || e.tipo !== 'visita' || e.estado !== 'pendiente' || e.fecha < hoy) continue
-    const prev = m.get(e.orden_id)
-    if (!prev || e.fecha < prev.fecha || (e.fecha === prev.fecha && (e.hora_inicio ?? '') < (prev.hora_inicio ?? ''))) m.set(e.orden_id, e)
+  const sustituidos = new Set<string>()
+  for (const e of eventos) if (e.serie_id && e.ocurrencia_original) sustituidos.add(`${e.serie_id}@${e.ocurrencia_original}`)
+  for (const s of eventos) {
+    if (!s.orden_id || s.tipo !== 'visita' || s.estado !== 'pendiente') continue
+    let e = s
+    if (s.rrule && !s.serie_id) {
+      const d = primerDiaDeSerie(s, hoy, sustituidos)
+      if (!d) continue
+      e = d === s.fecha ? s : { ...s, fecha: d, fecha_fin: s.fecha_fin ? addDias(d, diasEntre(s.fecha, s.fecha_fin)) : null }
+    } else if (s.fecha < hoy) continue
+    const prev = m.get(s.orden_id)
+    if (!prev || e.fecha < prev.fecha || (e.fecha === prev.fecha && (e.hora_inicio ?? '') < (prev.hora_inicio ?? ''))) m.set(s.orden_id, e)
   }
   return m
 }

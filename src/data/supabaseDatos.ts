@@ -137,9 +137,14 @@ export function crearBackendSupabase(supabase: SupabaseClient): Backend {
         .from('eventos')
         .select(COLS_EVENTO)
         .eq('tipo', 'visita')
-        .eq('estado', 'pendiente')
-        .gte('fecha', hoy)
         .not('orden_id', 'is', null)
+        // Pendientes desde hoy, las que se repiten (aunque empezaran antes) y las excepciones de sus días
+        // desde hoy (como en esVisitaFuturaOSerie): así cuenta el siguiente día de una visita repetida.
+        .or(
+          `and(estado.eq.pendiente,fecha.gte.${hoy}),` +
+            `and(estado.eq.pendiente,rrule.not.is.null,serie_id.is.null),` +
+            `and(serie_id.not.is.null,ocurrencia_original.gte.${hoy})`,
+        )
         .order('fecha')
         .limit(5000)
       return error ? ko(error) : ok(eventos(data))

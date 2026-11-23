@@ -10,6 +10,7 @@ import { leerEvento, soloCampos, CAMPOS_EVENTO, TIPOS_BASE, eventoNuevo, ultimoD
 import { leerTarea, tareaNueva, CAMPOS_TAREA, type Tarea } from '../lib/tareas'
 import { proximoLunes } from '../lib/semana'
 import type { CambioHistorial } from '../lib/historial'
+import { esVisitaFuturaOSerie } from '../lib/porProgramar'
 import type { Backend, Conexion } from './api'
 
 const EMPRESAS = [
@@ -235,7 +236,7 @@ export const backendDemo: Backend = {
     }
   },
   async listarVisitasFuturas(hoy) {
-    return { data: eventos.filter((e) => e.tipo === 'visita' && e.estado === 'pendiente' && e.fecha >= hoy && e.orden_id), error: null }
+    return { data: eventos.filter((e) => esVisitaFuturaOSerie(e, hoy)), error: null }
   },
   async listarEventosDeTipos(t) {
     return { data: eventos.filter((e) => t.includes(e.tipo) && e.estado !== 'cancelada' && e.orden_id), error: null }
