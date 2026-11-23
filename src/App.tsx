@@ -1,7 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { api, type Resultado } from './data/api'
-import { PlazosCtx, useMobile, usePref } from './hooks'
+import { PlazosCtx, useAlVolver, useMobile, usePref } from './hooks'
 import { addDias, hoyIso } from './lib/fechas'
 import { FESTIVOS_ALBACETE } from './lib/festivosAlbacete'
 import { mapaFestivos, type Festivo } from './lib/habiles'
@@ -10,6 +10,7 @@ import { ESTADOS, diasMinimos, fmtCorta, type Orden } from './lib/ordenes'
 import { plazoDe, proximoPlazo, type ContextoPlazos } from './lib/plazos/motor'
 import { combinarReglas, type ReglaFila } from './lib/plazos/reglas'
 import { leerRuta, type Ruta } from './lib/ruta'
+import { Recientes, sustituir } from './lib/juntar'
 import { irA } from './nav'
 import { Login } from './components/Login'
 import { Logo } from './components/Logo'
@@ -219,12 +220,19 @@ function Panel({ email }: { email: string }) {
     snackTimer.current = window.setTimeout(() => setSnack(null), s.action ? 7000 : 4000)
   }, [])
 
+  // Órdenes borradas o cambiadas aquí hace poco: una respuesta tardía no las resucita ni las pisa
+  const ordBorradas = useRef(new Recientes(5 * 60_000))
+  const ordTocadas = useRef(new Recientes(5 * 60_000))
   const cargar = useCallback(async () => {
+    const inicio = Date.now()
     try {
       const { data, error } = await (await api()).listarOrdenes()
       if (error !== null) setErrorCarga(error)
       else {
-        setOrdenes(data)
+        const bor = ordBorradas.current.conjunto()
+        const toc = ordTocadas.current.conjunto(inicio)
+        // Lista completa: sustituye todo, quedándose con la versión más reciente de cada orden
+        setOrdenes((prev) => [...sustituir(new Map(prev.map((o) => [o.id, o])), data, () => true, bor, toc).values()])
         setErrorCarga(null)
       }
     } catch {
@@ -260,6 +268,8 @@ function Panel({ email }: { email: string }) {
     cargar()
     cargarConfig()
   }, [cargar, cargarConfig])
+  // Al volver a la pestaña (si hace más de 30 s), se vuelven a pedir las órdenes (la agenda hace lo mismo)
+  useAlVolver(cargar)
 
   // «Hoy» se recalcula al volver a la app (por si se quedó abierta de un día para otro)
   const [hoy, setHoy] = useState(hoyIso)
@@ -323,6 +333,7 @@ function Panel({ email }: { email: string }) {
 
   function guardada(o: Orden, nueva: boolean) {
     setEditing(null)
+    ordTocadas.current.add(o.id)
     setOrdenes((prev) => (nueva ? [o, ...prev] : prev.map((x) => (x.id === o.id ? o : x))))
     showSnack({ msg: nueva ? 'Orden creada' : 'Cambios guardados' })
   }
@@ -341,6 +352,7 @@ function Panel({ email }: { email: string }) {
     const suyas = await b.listarAgendaOrden(o.id)
     const err = await b.eliminarOrden(o.id)
     if (err) return showSnack({ msg: 'No se pudo eliminar: ' + err, err: true })
+    ordBorradas.current.add(o.id)
     setOrdenes((prev) => prev.filter((x) => x.id !== o.id))
     agenda.olvidarOrden(o.id)
     showSnack({
@@ -356,6 +368,7 @@ function Panel({ email }: { email: string }) {
           void updated_at
           const { data, error } = await b.crearOrden(rest)
           if (error !== null) return showSnack({ msg: 'No se pudo restaurar: ' + error, err: true })
+          ordTocadas.current.add(data.id)
           setOrdenes((prev) => [data, ...prev])
           if (suyas.error === null) {
             // Primero las citas normales y las series; luego las excepciones (apuntan a su serie, con id nuevo)
@@ -497,6 +510,7 @@ function Panel({ email }: { email: string }) {
       showSnack({ msg: 'No se pudo actualizar la orden: ' + error, err: true })
       return false
     }
+    ordTocadas.current.add(o.id)
     setOrdenes((prev) => prev.map((x) => (x.id === o.id ? data : x)))
     return true
   }
