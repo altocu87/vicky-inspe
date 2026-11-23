@@ -37,6 +37,15 @@ const CARGANDO = (
 
 type Snack = { msg: string; err?: boolean; action?: { label: string; fn: () => void } }
 
+/** Copia de una cita o tarea sin id ni fechas de creación (para volver a crearla) */
+function sinMeta<T extends { id: string; created_at?: string | null; updated_at?: string | null }>(x: T): Omit<T, 'id' | 'created_at' | 'updated_at'> {
+  const { id, created_at, updated_at, ...resto } = x
+  void id
+  void created_at
+  void updated_at
+  return resto
+}
+
 const SORTS_MOVIL: { id: string; label: string; sort: Sort }[] = [
   { id: 'rec', label: 'Más recientes', sort: { key: 'fecha_orden', dir: 'desc' } },
   { id: 'urg', label: 'Más urgentes', sort: { key: 'urgencia', dir: 'asc' } },
@@ -333,29 +342,19 @@ function Panel({ email }: { email: string }) {
           if (error !== null) return showSnack({ msg: 'No se pudo restaurar: ' + error, err: true })
           setOrdenes((prev) => [data, ...prev])
           if (suyas.error === null) {
-            // Primero las citas normales y las series; luego las excepciones (apuntan a su serie, con id nuevo)
+            // Primero las citas normales y las series; luego las excepciones (apuntan a su serie, con id nuevo); luego las tareas.
+            // Cada grupo va en una sola petición (antes, una por cita o tarea)
             const ids = new Map<string, string>()
-            for (const e of suyas.data.eventos.filter((x) => !x.serie_id)) {
-              const { id, created_at, updated_at, ...resto } = e
-              void created_at
-              void updated_at
-              const n = await agenda.crearEvento({ ...resto, orden_id: data.id })
-              if (n) ids.set(id, n.id)
-            }
-            for (const e of suyas.data.eventos.filter((x) => x.serie_id && ids.has(x.serie_id))) {
-              const { id, created_at, updated_at, ...resto } = e
-              void id
-              void created_at
-              void updated_at
-              await agenda.crearEvento({ ...resto, orden_id: data.id, serie_id: ids.get(e.serie_id!)! })
-            }
-            for (const t of suyas.data.tareas) {
-              const { id, created_at, updated_at, ...resto } = t
-              void id
-              void created_at
-              void updated_at
-              await agenda.crearTarea({ ...resto, orden_id: data.id })
-            }
+            const normales = suyas.data.eventos.filter((e) => !e.serie_id)
+            const rn = await b.crearEventos(normales.map((e) => ({ ...sinMeta(e), orden_id: data.id })))
+            if (rn.error !== null) showSnack({ msg: 'No se pudo guardar: ' + rn.error, err: true })
+            else normales.forEach((e, i) => ids.set(e.id, rn.data[i].id))
+            const excepciones = suyas.data.eventos.filter((e) => e.serie_id && ids.has(e.serie_id))
+            const rx = await b.crearEventos(excepciones.map((e) => ({ ...sinMeta(e), orden_id: data.id, serie_id: ids.get(e.serie_id!)! })))
+            if (rx.error !== null) showSnack({ msg: 'No se pudo guardar: ' + rx.error, err: true })
+            const rt = await b.crearTareas(suyas.data.tareas.map((t) => ({ ...sinMeta(t), orden_id: data.id })))
+            if (rt.error !== null) showSnack({ msg: 'No se pudo guardar: ' + rt.error, err: true })
+            await agenda.cargarOrden(data.id)
           }
           showSnack({ msg: 'Orden restaurada' })
         },

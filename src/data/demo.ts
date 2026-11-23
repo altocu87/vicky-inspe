@@ -247,6 +247,12 @@ export const backendDemo: Backend = {
     eventos = [...eventos, e]
     return { data: e, error: null }
   },
+  async crearEventos(ps) {
+    const nuevos = ps.map((p) => leerEvento({ ...soloCampos(p, CAMPOS_EVENTO), id: nuevoId(), updated_at: ahora() }))
+    if (!nuevos.every((e) => e)) return { data: null, error: 'Algún dato no es válido.' }
+    eventos = [...eventos, ...(nuevos as Evento[])]
+    return { data: nuevos as Evento[], error: null }
+  },
   async actualizarEvento(id, p) {
     const prev = eventos.find((x) => x.id === id)
     const e = prev && leerEvento({ ...prev, ...soloCampos(p, CAMPOS_EVENTO), updated_at: ahora() })
@@ -266,6 +272,12 @@ export const backendDemo: Backend = {
     if (!t) return { data: null, error: 'Algún dato no es válido.' }
     tareas = [...tareas, t]
     return { data: t, error: null }
+  },
+  async crearTareas(ps) {
+    const nuevas = ps.map((p) => leerTarea({ ...soloCampos(p, CAMPOS_TAREA), id: nuevoId(), updated_at: ahora() }))
+    if (!nuevas.every((t) => t)) return { data: null, error: 'Algún dato no es válido.' }
+    tareas = [...tareas, ...(nuevas as Tarea[])]
+    return { data: nuevas as Tarea[], error: null }
   },
   async actualizarTarea(id, p) {
     const prev = tareas.find((x) => x.id === id)

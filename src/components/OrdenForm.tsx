@@ -191,7 +191,12 @@ export function OrdenForm({ orden, onClose, onSaved, onDelete, onError }: Props)
       return
     }
     // Visitas elegidas antes de que existiera la orden
-    for (const v of nueva ? visitasNuevas : []) await ag.crearEvento(eventoNuevo({ fecha: v, tipo: 'visita', titulo: 'Visita', orden_id: data.id }))
+    if (nueva && visitasNuevas.length) {
+      // Todas en una sola petición; luego se recarga la agenda de la orden
+      const r = await b.crearEventos(visitasNuevas.map((v) => eventoNuevo({ fecha: v, tipo: 'visita', titulo: 'Visita', orden_id: data.id })))
+      if (r.error !== null) onError('No se pudo guardar: ' + r.error)
+      await ag.cargarOrden(data.id)
+    }
     ref.current?.close()
     onSaved(data, nueva)
   }
