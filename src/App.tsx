@@ -2,6 +2,7 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } fro
 import type { Session } from '@supabase/supabase-js'
 import { api } from './data/api'
 import { PlazosCtx, useMobile, usePref } from './hooks'
+import { celdaCsv } from './lib/csv'
 import { addDias, hoyIso } from './lib/fechas'
 import { FESTIVOS_ALBACETE } from './lib/festivosAlbacete'
 import { mapaFestivos, type Festivo } from './lib/habiles'
@@ -77,12 +78,8 @@ function exportarCsv(rows: Orden[], ctx: ContextoPlazos, prox: ReadonlyMap<strin
     if (k.startsWith('fecha_') && k !== 'fecha_visita') return o[k as keyof Orden] ? fmtCorta(o[k as keyof Orden] as string) : ''
     return (o[k as keyof Orden] as string | null) ?? ''
   }
-  // Evita que Excel interprete un texto como fórmula (inyección CSV): se antepone un apóstrofo
-  const seguro = (s: string) => (/^[=+\-@\t\r]/.test(s) ? "'" + s : s)
-  const esc = (v: string) => {
-    const s = seguro(v)
-    return /[";\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
-  }
+  // Evita que Excel interprete un texto como fórmula (inyección CSV): ver lib/csv
+  const esc = celdaCsv
   const lines = [cols.map((c) => esc(c.label)).join(';'), ...rows.map((o) => cols.map((c) => esc(val(o, c.key))).join(';'))]
   const blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' })
   const a = document.createElement('a')
