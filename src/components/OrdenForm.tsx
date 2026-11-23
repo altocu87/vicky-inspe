@@ -185,11 +185,13 @@ export function OrdenForm({ orden, onClose, onSaved, onDelete, onError }: Props)
     }
     const b = await api()
     const { data, error } = nueva ? await b.crearOrden(payload) : await b.actualizarOrden(orden.id, payload)
-    setSaving(false)
     if (error !== null) {
+      setSaving(false)
       onError('No se pudo guardar: ' + error)
       return
     }
+    // Si ha ido bien, «Guardando…» sigue hasta cerrar el formulario: así una segunda pulsación
+    // mientras se crean las visitas no puede duplicar la orden.
     // Visitas elegidas antes de que existiera la orden
     for (const v of nueva ? visitasNuevas : []) await ag.crearEvento(eventoNuevo({ fecha: v, tipo: 'visita', titulo: 'Visita', orden_id: data.id }))
     ref.current?.close()
