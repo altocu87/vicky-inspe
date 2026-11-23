@@ -35,6 +35,26 @@ export interface Orden {
 
 export type OrdenInput = Omit<Orden, 'id' | 'created_at' | 'updated_at'>
 
+/**
+ * Longitud máxima de los textos de una orden. La usan el formulario y el servidor MCP, y coincide con
+ * la propuesta de CHECK en la base de datos (docs/propuestas-bd/medios-4-15.sql, #7): el historial
+ * guarda hasta 4000 caracteres, así que un texto vaciado o cambiado se puede recuperar entero.
+ */
+export const MAX_TEXTO = {
+  num_orden: 40,
+  empresa: 200,
+  objeto: 500,
+  fecha_visita: 500,
+  situacion_general: 4000,
+  tareas_pendientes: 4000,
+} as const
+
+/** Primer texto que pasa de su límite (o null si todo cabe) */
+export function textoDemasiadoLargo(o: Partial<Record<keyof typeof MAX_TEXTO, string | null>>): keyof typeof MAX_TEXTO | null {
+  for (const k of Object.keys(MAX_TEXTO) as (keyof typeof MAX_TEXTO)[]) if ((o[k] ?? '').trim().length > MAX_TEXTO[k]) return k
+  return null
+}
+
 export const ORDEN_VACIA: OrdenInput = {
   num_orden: '',
   estado: 'EN CURSO',

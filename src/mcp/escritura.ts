@@ -4,7 +4,7 @@
 import { z } from 'zod'
 import { addDias, diasEntre } from '../lib/fechas'
 import { mapaFestivos } from '../lib/habiles'
-import { ESTADOS_VISITA, ORDEN_VACIA, label, type Orden } from '../lib/ordenes'
+import { ESTADOS_VISITA, MAX_TEXTO, ORDEN_VACIA, label, type Orden } from '../lib/ordenes'
 import { NOMBRE_CAMPO_HIST } from '../lib/historial'
 import { eventoNuevo, type Evento, type EventoInput } from '../lib/eventos'
 import { cambiosAlHacer, tareaNueva } from '../lib/tareas'
@@ -51,11 +51,11 @@ export const crearOrden = herramienta({
   descripcion: 'Da de alta una orden nueva (estado EN CURSO salvo que se diga otro). Antes de llamarla, confirma con la usuaria el nº de orden y la empresa.',
   entrada: z.strictObject({
     num_orden: numOrden,
-    empresa: texto(200),
+    empresa: texto(MAX_TEXTO.empresa),
     fecha_orden: fecha.optional(),
     fecha_primera_actuacion: fecha.optional(),
     estado: estadoOrden.default('EN CURSO'),
-    objeto: texto(500).optional().describe('Solo si la usuaria lo dicta'),
+    objeto: texto(MAX_TEXTO.objeto).optional().describe('Solo si la usuaria lo dicta'),
   }),
   clase: 'alta',
   async ejecutar(a, ctx) {
@@ -110,15 +110,15 @@ export const editarOrden = herramienta({
       cambios: z
         .strictObject({
           num_orden: numOrden.optional(),
-          empresa: texto(200).optional(),
+          empresa: texto(MAX_TEXTO.empresa).optional(),
           fecha_orden: fecha.nullable().optional(),
           fecha_primera_actuacion: fecha.nullable().optional(),
           fecha_ultima_actuacion: fecha.nullable().optional(),
-          objeto: texto(500).nullable().optional(),
+          objeto: texto(MAX_TEXTO.objeto).nullable().optional(),
           estado_docum: estadoDocum.optional(),
           estado_visita: z.enum(ESTADOS_VISITA).optional(),
-          situacion_general: textoLargo(2000).nullable().optional(),
-          tareas_pendientes: textoLargo(2000).nullable().optional(),
+          situacion_general: textoLargo(MAX_TEXTO.situacion_general).nullable().optional(),
+          tareas_pendientes: textoLargo(MAX_TEXTO.tareas_pendientes).nullable().optional(),
           comparecencia_subida: siNo.nullable().optional(),
           doc_subida: siNo.nullable().optional(),
           claves: siNo.nullable().optional(),

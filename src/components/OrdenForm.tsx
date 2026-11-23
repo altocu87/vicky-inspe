@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { ESTADOS, ESTADOS_DOCUM, ESTADOS_VISITA, LABELS, ORDEN_VACIA, SI_NO, type Orden, type OrdenInput, type SiNo } from '../lib/ordenes'
+import { ESTADOS, ESTADOS_DOCUM, ESTADOS_VISITA, LABELS, MAX_TEXTO, ORDEN_VACIA, textoDemasiadoLargo, SI_NO, type Orden, type OrdenInput, type SiNo } from '../lib/ordenes'
 import { api } from '../data/api'
 import { usePlazosCtx } from '../hooks'
 import { NOMBRE_CAMPO } from '../lib/plazos/reglas'
@@ -63,11 +63,12 @@ function Field({
   onChange,
   type = 'text',
   multiline,
-  error,
-  help,
+  error: errorDado,
+  help: ayuda,
   placeholder,
   autoFocus,
   trailing,
+  max,
 }: {
   id: string
   label: string
@@ -80,12 +81,18 @@ function Field({
   placeholder?: string
   autoFocus?: boolean
   trailing?: React.ReactNode
+  /** Longitud máxima (si se pasa, avisa) */
+  max?: number
 }) {
+  const largo = (value ?? '').trim().length
+  const error = errorDado || (max && largo > max ? `Demasiado largo: ${largo} de ${max} caracteres como mucho` : null)
+  // Cerca del límite se ve cuánto queda
+  const help = ayuda || (max && largo > max * 0.9 ? `${largo} de ${max} caracteres` : undefined)
   return (
     <div className={`field${error ? ' error' : ''}${trailing ? ' has-trailing' : ''}`}>
       <label htmlFor={id}>{label}</label>
       {multiline ? (
-        <textarea id={id} value={value ?? ''} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} rows={2} />
+        <textarea id={id} value={value ?? ''} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} rows={2} maxLength={max} aria-invalid={!!error} />
       ) : (
         <input
           id={id}
@@ -94,6 +101,7 @@ function Field({
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
           autoFocus={autoFocus}
+          maxLength={max}
           aria-invalid={!!error}
           autoCapitalize={type === 'text' ? 'characters' : undefined}
         />
@@ -163,6 +171,8 @@ export function OrdenForm({ orden, onClose, onSaved, onDelete, onError }: Props)
     e.preventDefault()
     setTried(true)
     if (!f.num_orden.trim() || !f.empresa.trim()) return
+    // Textos que pasan del límite (p. ej. heredados del Excel): se marcan en rojo y no se guarda
+    if (textoDemasiadoLargo(f)) return onError('Hay un texto demasiado largo (marcado en rojo). Acórtalo para poder guardar.')
     setSaving(true)
     const t = (v: string | null) => (v && v.trim() ? v.trim() : null)
     const payload = {
@@ -233,8 +243,9 @@ export function OrdenForm({ orden, onClose, onSaved, onDelete, onError }: Props)
                 placeholder="2/0004814/24"
                 error={errNum}
                 autoFocus={nueva}
+                max={MAX_TEXTO.num_orden}
               />
-              <Field id="emp" label="Empresa *" value={f.empresa} onChange={(v) => set('empresa', v)} placeholder="Nombre de la empresa" error={errEmp} />
+              <Field id="emp" label="Empresa *" value={f.empresa} onChange={(v) => set('empresa', v)} placeholder="Nombre de la empresa" error={errEmp} max={MAX_TEXTO.empresa} />
             </div>
             <Seg label="Estado" options={ESTADOS} value={f.estado} onChange={(v) => v && set('estado', v)} icons={ESTADO_ICONO} />
           </section>
@@ -368,7 +379,7 @@ export function OrdenForm({ orden, onClose, onSaved, onDelete, onError }: Props)
               <h3 className="title-m">Documentación</h3>
             </div>
             <Seg label="Estado de la documentación" options={ESTADOS_DOCUM} value={f.estado_docum} onChange={(v) => set('estado_docum', v)} clearable />
-            <Field id="obj" label="Objeto" value={f.objeto} onChange={setTxt('objeto')} placeholder="Ej.: APORTA TODO LO SOLICITADO" />
+            <Field id="obj" label="Objeto" value={f.objeto} onChange={setTxt('objeto')} placeholder="Ej.: APORTA TODO LO SOLICITADO" max={MAX_TEXTO.objeto} />
           </section>
 
           <section className="section">
@@ -393,6 +404,7 @@ export function OrdenForm({ orden, onClose, onSaved, onDelete, onError }: Props)
               label="Notas de visita (Excel)"
               value={f.fecha_visita}
               onChange={setTxt('fecha_visita')}
+              max={MAX_TEXTO.fecha_visita}
               placeholder="NO VISITA, notas…"
               help="Texto heredado del Excel. Para programar una visita, usa el calendario de la derecha: se crea en el calendario."
               trailing={
@@ -439,8 +451,8 @@ export function OrdenForm({ orden, onClose, onSaved, onDelete, onError }: Props)
               <span className="icon">checklist</span>
               <h3 className="title-m">Seguimiento</h3>
             </div>
-            <Field id="sg" multiline label="Situación general" value={f.situacion_general} onChange={setTxt('situacion_general')} />
-            <Field id="tp" multiline label="Tareas pendientes" value={f.tareas_pendientes} onChange={setTxt('tareas_pendientes')} />
+            <Field id="sg" multiline label="Situación general" value={f.situacion_general} onChange={setTxt('situacion_general')} max={MAX_TEXTO.situacion_general} />
+            <Field id="tp" multiline label="Tareas pendientes" value={f.tareas_pendientes} onChange={setTxt('tareas_pendientes')} max={MAX_TEXTO.tareas_pendientes} />
           </section>
 
           <section className="section">
