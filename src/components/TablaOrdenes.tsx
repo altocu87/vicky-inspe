@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { usePlazosCtx } from '../hooks'
 import { fmtCorta, label, textoDias, type Orden } from '../lib/ordenes'
-import { plazoDe, proximoPlazo, type ContextoPlazos, type PlazoCalc } from '../lib/plazos/motor'
+import { plazoActivoDe, plazoDe, proximoPlazo, type ContextoPlazos, type PlazoCalc } from '../lib/plazos/motor'
 import { ESTADO_CLASE } from './OrdenCard'
 import { BotonProgramar, BotonVerCalendario, MarcaInhabil } from './plazos'
 import { useAgenda } from '../state/agenda'
@@ -129,7 +129,7 @@ export const COLUMNAS: Col[] = [
     label: 'Límite 9 meses',
     short: 'Límite 9 m',
     width: 168,
-    render: (o, ctx) => <Dias p={plazoDe(o, 'lim9', ctx)} fin={o.estado === 'FINALIZADA'} />,
+    render: (o, ctx) => <Dias p={plazoActivoDe(o, 'lim9', ctx)} fin={o.estado === 'FINALIZADA'} />,
   },
   { key: 'fecha_ultima_actuacion', label: 'Última actuación', short: 'Últ. act.', width: 96, render: (o) => fmtCorta(o.fecha_ultima_actuacion) },
   {
@@ -137,7 +137,7 @@ export const COLUMNAS: Col[] = [
     label: 'Límite siguiente actuación',
     short: 'Límite sig.',
     width: 168,
-    render: (o, ctx) => <Dias p={plazoDe(o, 'sig', ctx)} fin={o.estado === 'FINALIZADA'} />,
+    render: (o, ctx) => <Dias p={plazoActivoDe(o, 'sig', ctx)} fin={o.estado === 'FINALIZADA'} />,
   },
   {
     key: 'prox',
@@ -337,8 +337,8 @@ export function ListaMovil({ ordenes, onOpen }: { ordenes: Orden[]; onOpen: (o: 
     <ul className="mlist" data-tour="lista">
       {ordenes.map((o) => {
         const fin = o.estado === 'FINALIZADA'
-        const p9 = plazoDe(o, 'lim9', ctx)
-        const ps = plazoDe(o, 'sig', ctx)
+        const p9 = plazoActivoDe(o, 'lim9', ctx)
+        const ps = plazoActivoDe(o, 'sig', ctx)
         const otros = fin ? [] : proximoOtros(o, ctx)
         return (
           <li key={o.id}>

@@ -7,7 +7,7 @@ import { FESTIVOS_ALBACETE } from './lib/festivosAlbacete'
 import { mapaFestivos, type Festivo } from './lib/habiles'
 import { contarEstados, nombreFiltro, pasaFiltros, type Filtro } from './lib/filtros'
 import { ESTADOS, diasMinimos, fmtCorta, type Orden } from './lib/ordenes'
-import { plazoDe, proximoPlazo, type ContextoPlazos } from './lib/plazos/motor'
+import { plazoActivoDe, proximoPlazo, type ContextoPlazos } from './lib/plazos/motor'
 import { combinarReglas, type ReglaFila } from './lib/plazos/reglas'
 import { leerRuta, type Ruta } from './lib/ruta'
 import { irA } from './nav'
@@ -47,9 +47,9 @@ function valorOrden(o: Orden, k: SortKey, ctx: ContextoPlazos, prox: ReadonlyMap
     case 'urgencia':
       return diasMinimos(o, ctx)
     case 'lim9':
-      return plazoDe(o, 'lim9', ctx)?.fecha ?? null
+      return plazoActivoDe(o, 'lim9', ctx)?.fecha ?? null
     case 'sig':
-      return plazoDe(o, 'sig', ctx)?.fecha ?? null
+      return plazoActivoDe(o, 'sig', ctx)?.fecha ?? null
     case 'prox':
       return o.estado === 'FINALIZADA' ? null : (proximoPlazo(o, ctx)?.fecha ?? null)
     case 'estado':
@@ -67,7 +67,7 @@ function exportarCsv(rows: Orden[], ctx: ContextoPlazos, prox: ReadonlyMap<strin
       return v ? `${fmtCorta(v.fecha)}${v.todo_el_dia ? '' : ' ' + textoHora(v)}` : ''
     }
     if (k === 'lim9' || k === 'sig') {
-      const p = plazoDe(o, k, ctx)
+      const p = plazoActivoDe(o, k, ctx)
       return p ? fmtCorta(p.fecha) : ''
     }
     if (k === 'prox') {

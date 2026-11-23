@@ -4,7 +4,7 @@
 import type { ReactNode } from 'react'
 import { usePlazosCtx } from '../hooks'
 import { fmtCorta, label, textoDias, type Orden } from '../lib/ordenes'
-import { plazoDe, proximoPlazo, type ContextoPlazos, type PlazoCalc } from '../lib/plazos/motor'
+import { plazoActivoDe, proximoPlazo, type ContextoPlazos, type PlazoCalc } from '../lib/plazos/motor'
 import type { Evento } from '../lib/eventos'
 import { useAgenda } from '../state/agenda'
 import { ESTADO_CLASE } from './OrdenCard'
@@ -73,8 +73,8 @@ function Texto({ l, v, lineas = 3 }: { l: string; v: string | null; lineas?: 1 |
 
 function Ficha({ o, ctx, prox, onOpen }: { o: Orden; ctx: ContextoPlazos; prox: ReadonlyMap<string, Evento>; onOpen: (o: Orden) => void }) {
   const fin = o.estado === 'FINALIZADA'
-  const lim9 = plazoDe(o, 'lim9', ctx)
-  const sig = plazoDe(o, 'sig', ctx)
+  const lim9 = plazoActivoDe(o, 'lim9', ctx)
+  const sig = plazoActivoDe(o, 'sig', ctx)
   // Plazos creados en Ajustes: se suman al final de «Fechas»
   const otros = fin ? [] : proximoOtros(o, ctx)
   // El plazo más urgente se remarca
