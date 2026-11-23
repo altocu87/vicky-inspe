@@ -9,8 +9,12 @@ import './calendario.css'
 import App from './App.tsx'
 import { iniciarTema } from './tema'
 import { RUTA_PERMISO } from './lib/oauth'
+import { ErrorBoundary } from './components/ErrorBoundary'
+import { vigilarVersionNueva } from './lib/recarga'
 
 iniciarTema()
+// Tras publicar una versión nueva, si falta un archivo antiguo, recarga (sin bucles)
+vigilarVersionNueva()
 
 // /oauth/consent: pantalla de permiso para conectar ChatGPT (la abre Supabase). Todo lo demás, la app.
 const esPermiso = window.location.pathname === RUTA_PERMISO
@@ -19,18 +23,20 @@ const Consentimiento = lazy(() => import('./components/Consentimiento').then((m)
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    {esPermiso ? (
-      <Suspense
-        fallback={
-          <div className="loader">
-            <span />
-          </div>
-        }
-      >
-        <Consentimiento />
-      </Suspense>
-    ) : (
-      <App />
-    )}
+    <ErrorBoundary>
+      {esPermiso ? (
+        <Suspense
+          fallback={
+            <div className="loader">
+              <span />
+            </div>
+          }
+        >
+          <Consentimiento />
+        </Suspense>
+      ) : (
+        <App />
+      )}
+    </ErrorBoundary>
   </StrictMode>,
 )
