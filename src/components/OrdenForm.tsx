@@ -4,7 +4,7 @@ import { api } from '../data/api'
 import { usePlazosCtx } from '../hooks'
 import { NOMBRE_CAMPO } from '../lib/plazos/reglas'
 import { plazosDe } from '../lib/plazos/motor'
-import { ESTADO_ICONO } from './OrdenCard'
+import { ESTADO_ICONO } from './estados'
 import { Plazo } from './Plazo'
 import { BotonVerCalendario } from './plazos'
 import { HistorialOrden } from './HistorialOrden'
@@ -204,7 +204,12 @@ export function OrdenForm({ orden, onClose, onSaved, onDelete, onError }: Props)
     // Si ha ido bien, «Guardando…» sigue hasta cerrar el formulario: así una segunda pulsación
     // mientras se crean las visitas no puede duplicar la orden.
     // Visitas elegidas antes de que existiera la orden
-    for (const v of nueva ? visitasNuevas : []) await ag.crearEvento(eventoNuevo({ fecha: v, tipo: 'visita', titulo: 'Visita', orden_id: data.id }))
+    if (nueva && visitasNuevas.length) {
+      // Todas en una sola petición; luego se recarga la agenda de la orden
+      const r = await b.crearEventos(visitasNuevas.map((v) => eventoNuevo({ fecha: v, tipo: 'visita', titulo: 'Visita', orden_id: data.id })))
+      if (r.error !== null) onError('No se pudo guardar: ' + r.error)
+      await ag.cargarOrden(data.id)
+    }
     ref.current?.close()
     onSaved(data, nueva)
   }

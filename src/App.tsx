@@ -1,7 +1,8 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { lazy, Suspense, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { api } from './data/api'
-import { PlazosCtx, useMobile, usePref } from './hooks'
+import { PlazosCtx, useEstable, useMobile, usePref } from './hooks'
+import { celdaCsv } from './lib/csv'
 import { addDias, hoyIso } from './lib/fechas'
 import { FESTIVOS_ALBACETE } from './lib/festivosAlbacete'
 import { mapaFestivos, type Festivo } from './lib/habiles'
@@ -13,12 +14,10 @@ import { leerRuta, type Ruta } from './lib/ruta'
 import { irA } from './nav'
 import { Login } from './components/Login'
 import { Logo } from './components/Logo'
-import { Estadisticas } from './components/Estadisticas'
 import { OrdenForm } from './components/OrdenForm'
 import { ConfirmDelete } from './components/ConfirmDelete'
-import { Ajustes } from './components/Ajustes'
-import { Tutorial } from './components/Tutorial'
-import { COLUMNAS, ListaMovil, type Sort, type SortKey } from './components/TablaOrdenes'
+import { ListaMovil, type Sort, type SortKey } from './components/TablaOrdenes'
+import { COLUMNAS } from './components/columnas'
 import { FichasOrdenes } from './components/FichasOrdenes'
 import { GestorAgenda } from './components/agenda/Gestor'
 import { AgendaCtx, useAgendaEstado } from './state/agenda'
@@ -27,8 +26,26 @@ import { textoHora } from './lib/eventos'
 
 // El calendario (y la librería de repeticiones) se descarga solo al abrirlo
 const Calendario = lazy(() => import('./components/calendario/Calendario').then((m) => ({ default: m.Calendario })))
+// Pantallas que no se ven al entrar: se descargan la primera vez que se abren
+const Ajustes = lazy(() => import('./components/Ajustes').then((m) => ({ default: m.Ajustes })))
+const Estadisticas = lazy(() => import('./components/Estadisticas').then((m) => ({ default: m.Estadisticas })))
+const Tutorial = lazy(() => import('./components/Tutorial').then((m) => ({ default: m.Tutorial })))
+const CARGANDO = (
+  <div className="loader">
+    <span />
+  </div>
+)
 
 type Snack = { msg: string; err?: boolean; action?: { label: string; fn: () => void } }
+
+/** Copia de una cita o tarea sin id ni fechas de creación (para volver a crearla) */
+function sinMeta<T extends { id: string; created_at?: string | null; updated_at?: string | null }>(x: T): Omit<T, 'id' | 'created_at' | 'updated_at'> {
+  const { id, created_at, updated_at, ...resto } = x
+  void id
+  void created_at
+  void updated_at
+  return resto
+}
 
 const SORTS_MOVIL: { id: string; label: string; sort: Sort }[] = [
   { id: 'rec', label: 'Más recientes', sort: { key: 'fecha_orden', dir: 'desc' } },
@@ -77,12 +94,8 @@ function exportarCsv(rows: Orden[], ctx: ContextoPlazos, prox: ReadonlyMap<strin
     if (k.startsWith('fecha_') && k !== 'fecha_visita') return o[k as keyof Orden] ? fmtCorta(o[k as keyof Orden] as string) : ''
     return (o[k as keyof Orden] as string | null) ?? ''
   }
-  // Evita que Excel interprete un texto como fórmula (inyección CSV): se antepone un apóstrofo
-  const seguro = (s: string) => (/^[=+\-@\t\r]/.test(s) ? "'" + s : s)
-  const esc = (v: string) => {
-    const s = seguro(v)
-    return /[";\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
-  }
+  // Evita que Excel interprete un texto como fórmula (inyección CSV): ver lib/csv
+  const esc = celdaCsv
   const lines = [cols.map((c) => esc(c.label)).join(';'), ...rows.map((o) => cols.map((c) => esc(val(o, c.key))).join(';'))]
   const blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' })
   const a = document.createElement('a')
@@ -265,32 +278,38 @@ function Panel({ email, onAvisoSalida }: { email: string; onAvisoSalida: (aviso:
   const tiposPlazo = useMemo(() => reglas.filter((r) => r.activa && 'evento' in r.partida).map((r) => ('evento' in r.partida ? r.partida.evento : '')), [reglas])
   const agenda = useAgendaEstado(hoy, avisar, tiposPlazo)
   // Las reglas que cuentan desde una cita usan las citas no canceladas de cada orden
-  const eventosPlazos = useMemo(
+  const eventosPlazosNuevos = useMemo(
     () =>
       tiposPlazo.length
         ? agenda.eventos.filter((e) => e.orden_id && e.estado !== 'cancelada' && tiposPlazo.includes(e.tipo)).map((e) => ({ orden_id: e.orden_id!, tipo: e.tipo, fecha: e.fecha }))
         : undefined,
     [agenda.eventos, tiposPlazo],
   )
+  // Solo cambia (y con él el contexto y todos los plazos) si cambian las citas que cuentan
+  const eventosPlazos = useEstable(eventosPlazosNuevos, eventosPlazosNuevos ? eventosPlazosNuevos.map((e) => `${e.orden_id}|${e.tipo}|${e.fecha}`).join(',') : '-')
   const ctx = useMemo<ContextoPlazos>(() => ({ hoy, reglas, festivos: mapaFestivos(festivos), eventos: eventosPlazos }), [hoy, reglas, festivos, eventosPlazos])
 
   const stats = useMemo(() => contarEstados(ordenes, ctx), [ordenes, ctx])
 
+  // La búsqueda filtra con un valor «diferido»: el cuadro de texto responde al instante y la lista se pone al día después
+  const qDiferida = useDeferredValue(q)
   const visibles = useMemo(() => {
-    const f = { q, filtro, ocultarFin }
+    const f = { q: qDiferida, filtro, ocultarFin }
     const list = ordenes.filter((o) => pasaFiltros(o, f, ctx))
     const m = sort.dir === 'asc' ? 1 : -1
+    // La clave de cada orden se calcula una vez antes de ordenar (no dentro del comparador)
+    const clave = new Map(list.map((o) => [o, valorOrden(o, sort.key, ctx, agenda.proximas)]))
     return list.sort((a, b) => {
-      const va = valorOrden(a, sort.key, ctx, agenda.proximas)
-      const vb = valorOrden(b, sort.key, ctx, agenda.proximas)
+      const va = clave.get(a)!
+      const vb = clave.get(b)!
       if (va === vb) return (b.fecha_orden ?? '').localeCompare(a.fecha_orden ?? '')
       if (va === null) return 1
       if (vb === null) return -1
       if (typeof va === 'number' && typeof vb === 'number') return (va - vb) * m
       return String(va).localeCompare(String(vb), 'es', { numeric: true }) * m
     })
-  }, [ordenes, q, filtro, ocultarFin, sort, ctx, agenda.proximas])
-  const filtros = useMemo(() => ({ q, filtro, ocultarFin }), [q, filtro, ocultarFin])
+  }, [ordenes, qDiferida, filtro, ocultarFin, sort, ctx, agenda.proximas])
+  const filtros = useMemo(() => ({ q: qDiferida, filtro, ocultarFin }), [qDiferida, filtro, ocultarFin])
 
   function elegirFiltro(f: Filtro) {
     const nuevo = filtro === f ? 'todos' : f
@@ -330,29 +349,19 @@ function Panel({ email, onAvisoSalida }: { email: string; onAvisoSalida: (aviso:
           if (error !== null) return showSnack({ msg: 'No se pudo restaurar: ' + error, err: true })
           setOrdenes((prev) => [data, ...prev])
           if (suyas.error === null) {
-            // Primero las citas normales y las series; luego las excepciones (apuntan a su serie, con id nuevo)
+            // Primero las citas normales y las series; luego las excepciones (apuntan a su serie, con id nuevo); luego las tareas.
+            // Cada grupo va en una sola petición (antes, una por cita o tarea)
             const ids = new Map<string, string>()
-            for (const e of suyas.data.eventos.filter((x) => !x.serie_id)) {
-              const { id, created_at, updated_at, ...resto } = e
-              void created_at
-              void updated_at
-              const n = await agenda.crearEvento({ ...resto, orden_id: data.id })
-              if (n) ids.set(id, n.id)
-            }
-            for (const e of suyas.data.eventos.filter((x) => x.serie_id && ids.has(x.serie_id))) {
-              const { id, created_at, updated_at, ...resto } = e
-              void id
-              void created_at
-              void updated_at
-              await agenda.crearEvento({ ...resto, orden_id: data.id, serie_id: ids.get(e.serie_id!)! })
-            }
-            for (const t of suyas.data.tareas) {
-              const { id, created_at, updated_at, ...resto } = t
-              void id
-              void created_at
-              void updated_at
-              await agenda.crearTarea({ ...resto, orden_id: data.id })
-            }
+            const normales = suyas.data.eventos.filter((e) => !e.serie_id)
+            const rn = await b.crearEventos(normales.map((e) => ({ ...sinMeta(e), orden_id: data.id })))
+            if (rn.error !== null) showSnack({ msg: 'No se pudo guardar: ' + rn.error, err: true })
+            else normales.forEach((e, i) => ids.set(e.id, rn.data[i].id))
+            const excepciones = suyas.data.eventos.filter((e) => e.serie_id && ids.has(e.serie_id))
+            const rx = await b.crearEventos(excepciones.map((e) => ({ ...sinMeta(e), orden_id: data.id, serie_id: ids.get(e.serie_id!)! })))
+            if (rx.error !== null) showSnack({ msg: 'No se pudo guardar: ' + rx.error, err: true })
+            const rt = await b.crearTareas(suyas.data.tareas.map((t) => ({ ...sinMeta(t), orden_id: data.id })))
+            if (rt.error !== null) showSnack({ msg: 'No se pudo guardar: ' + rt.error, err: true })
+            await agenda.cargarOrden(data.id)
           }
           showSnack({ msg: 'Orden restaurada' })
         },
@@ -474,7 +483,9 @@ function Panel({ email, onAvisoSalida }: { email: string; onAvisoSalida: (aviso:
     return (
       <PlazosCtx.Provider value={ctx}>
         <AgendaCtx.Provider value={agenda}>
-          <Ajustes festivos={festivos} festivosDeSerie={festivosDeSerie} reglas={reglas} onBack={volver} onCambio={cargarConfig} avisar={(msg, err) => showSnack({ msg, err })} />
+          <Suspense fallback={CARGANDO}>
+            <Ajustes festivos={festivos} festivosDeSerie={festivosDeSerie} reglas={reglas} onBack={volver} onCambio={cargarConfig} avisar={(msg, err) => showSnack({ msg, err })} />
+          </Suspense>
           {snack && <SnackBar snack={snack} cerrar={() => setSnack(null)} />}
         </AgendaCtx.Provider>
       </PlazosCtx.Provider>
@@ -620,7 +631,9 @@ function Panel({ email, onAvisoSalida }: { email: string; onAvisoSalida: (aviso:
             <span />
           </div>
         ) : enStats ? (
-          <Estadisticas ordenes={ordenes} />
+          <Suspense fallback={CARGANDO}>
+            <Estadisticas ordenes={ordenes} />
+          </Suspense>
         ) : enCal ? (
           <Suspense
             fallback={
@@ -684,7 +697,11 @@ function Panel({ email, onAvisoSalida }: { email: string; onAvisoSalida: (aviso:
 
         {snack && <SnackBar snack={snack} cerrar={() => setSnack(null)} />}
 
-        {tutorial && <Tutorial ruta={ruta} onClose={() => setTutorial(false)} />}
+        {tutorial && (
+          <Suspense fallback={null}>
+            <Tutorial ruta={ruta} onClose={() => setTutorial(false)} />
+          </Suspense>
+        )}
 
       </div>
       </GestorAgenda>

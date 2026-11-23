@@ -1,5 +1,5 @@
 // Hooks compartidos por varias pantallas.
-import { createContext, useCallback, useContext, useEffect, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
 import { hoyIso } from './lib/fechas'
 import { contextoBase, type ContextoPlazos } from './lib/plazos/motor'
 
@@ -42,3 +42,13 @@ export function useMobile() {
 /** Contexto de plazos (hoy, reglas y festivos) compartido por todas las pantallas */
 export const PlazosCtx = createContext<ContextoPlazos>(contextoBase(hoyIso()))
 export const usePlazosCtx = () => useContext(PlazosCtx)
+
+/**
+ * Devuelve siempre el mismo valor mientras su «clave» no cambie, aunque llegue un objeto nuevo.
+ * Sirve para no recalcular todo lo que depende de él cuando el contenido es el mismo.
+ */
+export function useEstable<T>(valor: T, clave: string): T {
+  const ref = useRef({ clave, valor })
+  if (ref.current.clave !== clave) ref.current = { clave, valor }
+  return ref.current.valor
+}

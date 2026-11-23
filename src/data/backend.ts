@@ -37,11 +37,15 @@ export interface Backend {
   /** Visitas, citas y tareas de una orden */
   listarAgendaOrden(ordenId: string): Promise<Resultado<{ eventos: Evento[]; tareas: Tarea[] }>>
   crearEvento(e: EventoInput): Promise<Resultado<Evento>>
+  /** Varias de una vez (una sola petición). Devuelve las creadas en el mismo orden; si falla, no se crea ninguna */
+  crearEventos(es: EventoInput[]): Promise<Resultado<Evento[]>>
   actualizarEvento(id: string, cambios: Partial<EventoInput>): Promise<Resultado<Evento>>
   eliminarEvento(id: string): Promise<string | null>
   /** Tareas con fecha entre dos días, más las pendientes sin fecha o atrasadas */
   listarTareas(desde: string, hasta: string): Promise<Resultado<Tarea[]>>
   crearTarea(t: TareaInput): Promise<Resultado<Tarea>>
+  /** Varias de una vez (una sola petición), en el mismo orden; si falla, no se crea ninguna */
+  crearTareas(ts: TareaInput[]): Promise<Resultado<Tarea[]>>
   actualizarTarea(id: string, cambios: Partial<TareaInput>): Promise<Resultado<Tarea>>
   eliminarTarea(id: string): Promise<string | null>
   /** Cambios guardados de una orden (los escribe la base de datos; aquí solo se leen) */
