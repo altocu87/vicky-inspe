@@ -379,6 +379,22 @@ function Panel({ email, onAvisoSalida }: { email: string; onAvisoSalida: (aviso:
 
   const enStats = pantalla === 'stats'
   const enLista = !enCal && !enStats
+  // Atajo «/» para ir al buscador en Órdenes y Estadísticas (en el Calendario ya lo gestiona él).
+  // No salta si se está escribiendo en un campo o hay una ventana abierta.
+  useEffect(() => {
+    if (mobile || enCal) return
+    const h = (e: KeyboardEvent) => {
+      if (e.key !== '/' || e.ctrlKey || e.metaKey || e.altKey) return
+      if ((e.target as HTMLElement).closest('input, textarea, select, [contenteditable], dialog')) return
+      if (document.querySelector('dialog[open]')) return
+      const buscar = document.getElementById('buscar')
+      if (!buscar) return
+      e.preventDefault()
+      buscar.focus()
+    }
+    document.addEventListener('keydown', h)
+    return () => document.removeEventListener('keydown', h)
+  }, [mobile, enCal])
   const seccion = enCal ? 'Calendario' : enStats ? 'Estadísticas' : 'Órdenes'
   /** Las tarjetas de acceso abren su pantalla; si ya estás en ella, vuelven a Órdenes */
   const irSeccion = (p: 'calendario' | 'stats') => irA({ pantalla: pantalla === p ? 'lista' : p })
@@ -565,7 +581,7 @@ function Panel({ email, onAvisoSalida }: { email: string; onAvisoSalida: (aviso:
                   <label className="search compacta" data-tour="buscar">
                     <span className="icon">search</span>
                     <span className="sr-only">Buscar</span>
-                    <input id="buscar" value={q} onChange={(e) => buscarTexto(e.target.value)} placeholder="Buscar… ( / )" title="Buscar nº, empresa, objeto, tareas…" type="search" enterKeyHint="search" />
+                    <input id="buscar" value={q} onChange={(e) => buscarTexto(e.target.value)} placeholder={mobile ? 'Buscar…' : 'Buscar… ( / )'} title="Buscar nº, empresa, objeto, tareas…" type="search" enterKeyHint="search" />
                     {q && (
                       <button className="icon-btn" onClick={() => setQ('')} aria-label="Borrar búsqueda">
                         <span className="icon">close</span>
