@@ -7,6 +7,7 @@ import { ORDEN_VACIA, type Orden } from '../lib/ordenes'
 import { FESTIVOS_ALBACETE } from '../lib/festivosAlbacete'
 import type { CambioHistorial } from '../lib/historial'
 import type { DatosMcp } from './comun'
+import { esVisitaFuturaOSerie } from '../lib/porProgramar'
 
 export interface Escritura {
   metodo: string
@@ -112,7 +113,7 @@ export function datosPrueba(opciones: { fallar?: boolean } = {}) {
       return ok(eventos.filter((e) => (e.fecha <= hasta && ultimoDia(e) >= desde) || (e.rrule && e.fecha <= hasta)))
     },
     async listarVisitasFuturas(hoy) {
-      return ok(eventos.filter((e) => e.tipo === 'visita' && e.estado === 'pendiente' && e.fecha >= hoy && e.orden_id))
+      return ok(eventos.filter((e) => esVisitaFuturaOSerie(e, hoy)))
     },
     async listarEventosDeTipos(t) {
       return ok(eventos.filter((e) => t.includes(e.tipo)))

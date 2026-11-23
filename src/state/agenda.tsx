@@ -92,7 +92,8 @@ export function useAgendaEstado(hoy: string, avisar: (msg: string, err?: boolean
   const recargarTipos = useCallback(async () => {
     const r = await (await api()).listarTipos()
     if (r.error === null) setTiposFilas(r.data)
-  }, [])
+    else fallo('No se pudieron cargar los tipos de cita: ' + r.error)
+  }, [fallo])
 
   // Al empezar: visitas futuras (para la tabla y «Por programar»), tipos y tareas de este mes y pendientes
   useEffect(() => {
@@ -105,6 +106,7 @@ export function useAgendaEstado(hoy: string, avisar: (msg: string, err?: boolean
       setDisponible(true)
       setEventos((m) => juntar(m, v.data))
       if (t.error === null) setTareas((m) => juntar(m, t.data))
+      else fallo('No se pudieron cargar las tareas: ' + t.error)
       recargarTipos()
     })()
     return () => {
@@ -116,11 +118,17 @@ export function useAgendaEstado(hoy: string, avisar: (msg: string, err?: boolean
   const clavesTipos = [...tiposPlazo].sort().join(',')
   useEffect(() => {
     if (!clavesTipos) return
+    let vivo = true
     ;(async () => {
       const r = await (await api()).listarEventosDeTipos(clavesTipos.split(','))
+      if (!vivo) return
       if (r.error === null) setEventos((m) => juntar(m, r.data))
+      else fallo('No se pudieron cargar las citas de los plazos: ' + r.error)
     })()
-  }, [clavesTipos])
+    return () => {
+      vivo = false
+    }
+  }, [clavesTipos, fallo])
 
   const cargarRango = useCallback(
     async (desde: string, hasta: string) => {
@@ -138,6 +146,7 @@ export function useAgendaEstado(hoy: string, avisar: (msg: string, err?: boolean
       }
       setEventos((m) => juntar(m, e.data))
       if (t.error === null) setTareas((m) => juntar(m, t.data))
+      else fallo('No se pudieron cargar las tareas: ' + t.error)
     },
     [fallo],
   )

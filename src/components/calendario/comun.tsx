@@ -8,7 +8,7 @@ import { useAcciones } from '../../state/acciones'
 
 /** Una fila: icono, hora, título y detalle. Botones grandes para el dedo. */
 export function ItemFila({ i, conMapa }: { i: ItemCal; conMapa?: boolean }) {
-  const { verItem, alternarTarea } = useAcciones()
+  const { verItem, alternarTarea, tareasEnCurso } = useAcciones()
   const ev = i.ref.tipo === 'evento' ? i.ref.oc.evento : null
   const mapa = conMapa && ev && ev.estado === 'pendiente' ? enlaceMapa(ev.ubicacion) : null
   const tarea = i.ref.tipo === 'tarea' ? i.ref.tarea : null
@@ -18,6 +18,7 @@ export function ItemFila({ i, conMapa }: { i: ItemCal; conMapa?: boolean }) {
         <button
           className="icon-btn ifila-check"
           aria-label={tarea.hecha ? `Marcar «${tarea.titulo}» como no hecha` : `Marcar «${tarea.titulo}» como hecha`}
+          disabled={tareasEnCurso.has(tarea.id)}
           onClick={() => alternarTarea(tarea)}
         >
           <span className="icon">{tarea.hecha ? 'check_box' : 'check_box_outline_blank'}</span>

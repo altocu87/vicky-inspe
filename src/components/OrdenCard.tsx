@@ -10,8 +10,10 @@ export function OrdenCard({ orden, onOpen, index }: { orden: Orden; onOpen: () =
   const ctx = usePlazosCtx()
   const plazos = plazosDe(orden, ctx)
   // Las dos del Excel siempre (aunque estén vacías); las añadidas en Ajustes, si aplican
-  const lim9 = plazos.find((p) => p.regla.id === 'lim9') ?? null
-  const sig = plazos.find((p) => p.regla.id === 'sig') ?? null
+  // Si la regla está desactivada en Ajustes no se muestra su fecha
+  const lim9 = plazos.find((p) => p.regla.id === 'lim9' && p.regla.activa) ?? null
+  const sig = plazos.find((p) => p.regla.id === 'sig' && p.regla.activa) ?? null
+  const apagada = (id: string) => ctx.reglas.find((r) => r.id === id)?.activa === false
   const otros = plazos.filter((p) => p.regla.id !== 'lim9' && p.regla.id !== 'sig' && p.regla.activa && (p.aplica || fin))
   return (
     <div className="card-wrap">
@@ -35,8 +37,8 @@ export function OrdenCard({ orden, onOpen, index }: { orden: Orden; onOpen: () =
         </div>
 
         <div className="plazos">
-          <Plazo titulo="Límite 9 meses" plazo={lim9} inhabil={lim9?.inhabil} finalizada={fin} vacio="Sin primera actuación" />
-          <Plazo titulo="Siguiente actuación" plazo={sig} inhabil={sig?.inhabil} finalizada={fin} vacio="Sin última actuación" />
+          <Plazo titulo="Límite 9 meses" plazo={lim9} inhabil={lim9?.inhabil} finalizada={fin} vacio={apagada('lim9') ? 'Regla desactivada' : 'Sin primera actuación'} />
+          <Plazo titulo="Siguiente actuación" plazo={sig} inhabil={sig?.inhabil} finalizada={fin} vacio={apagada('sig') ? 'Regla desactivada' : 'Sin última actuación'} />
           {otros.map((p) => (
             <Plazo key={p.regla.id} titulo={p.regla.nombre} plazo={p} inhabil={p.inhabil} finalizada={fin} vacio="" />
           ))}

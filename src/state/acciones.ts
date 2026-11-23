@@ -20,6 +20,8 @@ export interface Acciones {
   verItem(i: ItemCal): void
   marcar(e: Evento, fecha: string, r: Resultado): Promise<void>
   alternarTarea(t: Tarea): Promise<void>
+  /** Tareas que se están marcando ahora mismo (su botón se desactiva para no pulsar dos veces) */
+  tareasEnCurso: ReadonlySet<string>
   /** Próximo domingo o lunes libre para una visita */
   huecoVisita(desde?: string): string
   avisar(msg: string, err?: boolean): void
@@ -36,6 +38,7 @@ export const AccionesCtx = createContext<Acciones>({
   verItem: nada,
   marcar: async () => {},
   alternarTarea: async () => {},
+  tareasEnCurso: new Set(),
   huecoVisita: () => '',
   avisar: nada,
 })

@@ -20,12 +20,15 @@ function idAleatorio() {
 
 export function Ajustes({
   festivos,
+  festivosDeSerie = false,
   reglas,
   onBack,
   onCambio,
   avisar,
 }: {
   festivos: Festivo[]
+  /** No se pudieron leer los festivos guardados: se muestran los de serie (no se pueden quitar) */
+  festivosDeSerie?: boolean
   reglas: Regla[]
   onBack: () => void
   onCambio: () => void
@@ -66,7 +69,16 @@ export function Ajustes({
             </button>
           ))}
         </div>
-        {locales < 2 && (
+        {festivosDeSerie && (
+          <div className="aviso-caja" role="alert">
+            <span className="icon">cloud_off</span>
+            <span>No se pudieron cargar los festivos guardados. Se muestran los que trae la app de serie y no se pueden cambiar hasta que vuelvan a cargarse.</span>
+            <button className="btn text" onClick={onCambio}>
+              Reintentar
+            </button>
+          </div>
+        )}
+        {locales < 2 && !festivosDeSerie && (
           <p className="aviso-caja" role="note">
             <span className="icon">info</span>
             Faltan las fiestas locales de Albacete de {anio} ({locales} de 2). Añádelas cuando se publiquen.
@@ -75,10 +87,10 @@ export function Ajustes({
         <ul className="aj-lista">
           {delAnio.length === 0 && <li className="body-m muted">No hay festivos guardados para {anio}.</li>}
           {delAnio.map((f) => (
-            <FilaFestivo key={f.fecha} f={f} onCambio={onCambio} avisar={avisar} />
+            <FilaFestivo key={f.fecha} f={f} deSerie={festivosDeSerie} onCambio={onCambio} avisar={avisar} />
           ))}
         </ul>
-        <NuevoFestivo anio={anio} existentes={festivos} onCambio={onCambio} avisar={avisar} />
+        {!festivosDeSerie && <NuevoFestivo anio={anio} existentes={festivos} onCambio={onCambio} avisar={avisar} />}
       </section>
 
       <TiposCita avisar={avisar} />
@@ -104,7 +116,7 @@ export function Ajustes({
   )
 }
 
-function FilaFestivo({ f, onCambio, avisar }: { f: Festivo; onCambio: () => void; avisar: (m: string, e?: boolean) => void }) {
+function FilaFestivo({ f, deSerie, onCambio, avisar }: { f: Festivo; deSerie: boolean; onCambio: () => void; avisar: (m: string, e?: boolean) => void }) {
   const [borrando, setBorrando] = useState(false)
   return (
     <li className="aj-fila">
@@ -116,23 +128,25 @@ function FilaFestivo({ f, onCambio, avisar }: { f: Festivo; onCambio: () => void
         {f.nombre}
         <span className={`tag amb-${f.ambito}`}>{NOMBRE_AMBITO[f.ambito]}</span>
       </span>
-      <button
-        className="icon-btn"
-        aria-label={`Quitar el festivo ${f.nombre} del ${fmt(f.fecha)}`}
-        title="Quitar"
-        disabled={borrando}
-        onClick={async () => {
-          if (!window.confirm(`¿Quitar «${f.nombre}» (${fmt(f.fecha)})?`)) return
-          setBorrando(true)
-          const err = await (await api()).eliminarFestivo(f.fecha)
-          setBorrando(false)
-          if (err) return avisar('No se pudo quitar: ' + err, true)
-          avisar('Festivo quitado')
-          onCambio()
-        }}
-      >
-        <span className="icon">delete</span>
-      </button>
+      {!deSerie && (
+        <button
+          className="icon-btn"
+          aria-label={`Quitar el festivo ${f.nombre} del ${fmt(f.fecha)}`}
+          title="Quitar"
+          disabled={borrando}
+          onClick={async () => {
+            if (!window.confirm(`¿Quitar «${f.nombre}» (${fmt(f.fecha)})?`)) return
+            setBorrando(true)
+            const err = await (await api()).eliminarFestivo(f.fecha)
+            setBorrando(false)
+            if (err) return avisar('No se pudo quitar: ' + err, true)
+            avisar('Festivo quitado')
+            onCambio()
+          }}
+        >
+          <span className="icon">delete</span>
+        </button>
+      )}
     </li>
   )
 }
@@ -489,7 +503,7 @@ function TiposCita({ avisar }: { avisar: (m: string, e?: boolean) => void }) {
   )
 }
 
-/** Asistentes (ChatGPT) con permiso para entrar con tu usuario. Quitar el acceso lo corta al momento. */
+/** Asistentes (ChatGPT) con permiso para entrar con tu usuario. Quitar el acceso lo corta en, como mucho, 15 minutos. */
 function Conexiones({ avisar }: { avisar: (m: string, e?: boolean) => void }) {
   const [lista, setLista] = useState<Conexion[] | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -510,7 +524,7 @@ function Conexiones({ avisar }: { avisar: (m: string, e?: boolean) => void }) {
   }, [cargar])
 
   async function quitar(c: Conexion) {
-    if (!window.confirm(`¿Quitar el acceso de «${c.nombre}»? Dejará de poder consultar o cambiar tus datos al momento. Para volver a usarlo, tendrás que conectarlo otra vez desde ChatGPT.`)) return
+    if (!window.confirm(`¿Quitar el acceso de «${c.nombre}»? Dejará de poder consultar o cambiar tus datos en unos minutos (como mucho 15). Para volver a usarlo, tendrás que conectarlo otra vez desde ChatGPT.`)) return
     setQuitando(c.clientId)
     const err = await (await api()).revocarConexion(c.clientId)
     setQuitando(null)
@@ -533,7 +547,7 @@ function Conexiones({ avisar }: { avisar: (m: string, e?: boolean) => void }) {
       </p>
       <ul className="aj-lista">
         {lista === null && <li className="body-m muted">Cargando…</li>}
-        {lista && lista.length === 0 && <li className="body-m muted">{error ? 'La conexión con asistentes aún no está activada.' : 'Ninguno conectado.'}</li>}
+        {lista && lista.length === 0 && <li className="body-m muted">{error ?? 'Ninguno conectado.'}</li>}
         {lista?.map((c) => (
           <li key={c.clientId} className="aj-fila">
             <span className="aj-txt">

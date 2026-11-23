@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { leerEvento } from './eventos'
 import { ORDEN_VACIA, type Orden } from './ordenes'
 import { contextoBase } from './plazos/motor'
-import { ordenesConVisitaFutura, porProgramar, proximasVisitas } from './porProgramar'
+import { esVisitaFuturaOSerie, ordenesConVisitaFutura, porProgramar, proximasVisitas } from './porProgramar'
 import { tareaNueva, type Tarea } from './tareas'
 
 const HOY = '2026-11-19'
@@ -33,5 +33,33 @@ describe('Por programar', () => {
     const m = proximasVisitas([...eventos, visita(conVisita.id, '2026-11-23'), visita(conVisita.id, '2026-11-20', 'hecha')], HOY)
     expect(m.get(conVisita.id)!.fecha).toBe('2026-11-22')
     expect(m.has(urgente.id)).toBe(false)
+  })
+})
+
+describe('Visitas que se repiten (series)', () => {
+  const o = orden({ fecha_primera_actuacion: '2026-03-01' })
+  // Serie semanal que empezó ANTES de hoy (jueves 5-nov-2026); hoy es jueves 19-nov
+  const serie = leerEvento({ id: id(), titulo: 'v', tipo: 'visita', fecha: '2026-11-05', estado: 'pendiente', orden_id: o.id, rrule: 'FREQ=WEEKLY' })!
+  it('una serie empezada antes de hoy cuenta como próxima visita (su siguiente día)', () => {
+    expect(serie.rrule).toBe('FREQ=WEEKLY')
+    const m = proximasVisitas([serie], HOY)
+    expect(m.get(o.id)?.fecha).toBe('2026-11-19')
+    expect(m.get(o.id)?.id).toBe(serie.id)
+    expect(ordenesConVisitaFutura([serie], HOY).has(o.id)).toBe(true)
+    expect(porProgramar([o], [], ordenesConVisitaFutura([serie], HOY), ctx)).toEqual([])
+  })
+  it('salta los días quitados y los sustituidos por una excepción cancelada', () => {
+    const conQuitado = { ...serie, exdates: ['2026-11-19'] }
+    const cancelada = leerEvento({ id: id(), titulo: 'v', tipo: 'visita', fecha: '2026-11-26', estado: 'cancelada', orden_id: o.id, serie_id: serie.id, ocurrencia_original: '2026-11-26' })!
+    expect(proximasVisitas([conQuitado, cancelada], HOY).get(o.id)?.fecha).toBe('2026-12-03')
+  })
+  it('una serie que ya terminó no cuenta', () => {
+    const acabada = { ...serie, rrule: 'FREQ=WEEKLY;COUNT=2' }
+    expect(proximasVisitas([acabada], HOY).has(o.id)).toBe(false)
+  })
+  it('qué se carga: series empezadas antes y excepciones desde hoy', () => {
+    expect(esVisitaFuturaOSerie(serie, HOY)).toBe(true)
+    expect(esVisitaFuturaOSerie(visita(o.id, '2026-11-01'), HOY)).toBe(false)
+    expect(esVisitaFuturaOSerie(visita(o.id, '2026-11-20'), HOY)).toBe(true)
   })
 })

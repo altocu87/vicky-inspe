@@ -59,7 +59,12 @@ export function crearBackendSupabase(supabase: SupabaseClient): Backend {
       return error ? 'Correo o contraseña incorrectos' : null
     },
     async salir() {
-      await supabase.auth.signOut()
+      const { error } = await supabase.auth.signOut()
+      if (!error) return null
+      // Plan B: si el servidor no responde, al menos se borra la sesión de este navegador
+      const local = await supabase.auth.signOut({ scope: 'local' })
+      if (local.error) return 'No se pudo cerrar la sesión: ' + mensajeError(local.error)
+      return 'La sesión se ha cerrado en este navegador, pero no se pudo avisar al servidor (' + mensajeError(error) + '). Si la tenías abierta en otro dispositivo, ciérrala también allí.'
     },
 
     async listarOrdenes() {
@@ -139,9 +144,14 @@ export function crearBackendSupabase(supabase: SupabaseClient): Backend {
         .from('eventos')
         .select(COLS_EVENTO)
         .eq('tipo', 'visita')
-        .eq('estado', 'pendiente')
-        .gte('fecha', hoy)
         .not('orden_id', 'is', null)
+        // Pendientes desde hoy, las que se repiten (aunque empezaran antes) y las excepciones de sus días
+        // desde hoy (como en esVisitaFuturaOSerie): así cuenta el siguiente día de una visita repetida.
+        .or(
+          `and(estado.eq.pendiente,fecha.gte.${hoy}),` +
+            `and(estado.eq.pendiente,rrule.not.is.null,serie_id.is.null),` +
+            `and(serie_id.not.is.null,ocurrencia_original.gte.${hoy})`,
+        )
         .order('fecha')
         .limit(5000)
       return error ? ko(error) : ok(eventos(data))
@@ -256,7 +266,8 @@ export function crearBackendSupabase(supabase: SupabaseClient): Backend {
     },
     async listarConexiones() {
       const { data, error } = await supabase.auth.oauth.listGrants()
-      if (error) return { data: null, error: 'No se pudo leer la lista de conexiones.' }
+      if (error)
+        return { data: null, error: error.status === 404 ? 'La conexión con asistentes aún no está activada.' : 'No se pudo leer la lista de conexiones: ' + mensajeError(error) }
       const lista: Conexion[] = (data ?? []).map((g) => ({ clientId: g.client.id, nombre: g.client.name || 'Asistente sin nombre', desde: g.granted_at }))
       return ok(lista)
     },

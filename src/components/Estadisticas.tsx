@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import type { Orden } from '../lib/ordenes'
+import { cerradaDentroDe9Meses } from '../lib/estadisticas'
 
 const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
 const MESES_L = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
@@ -104,7 +105,10 @@ export function Estadisticas({ ordenes }: { ordenes: Orden[] }) {
     })
     return [...s].sort().reverse()
   }, [ordenes])
-  const [anio, setAnio] = useState<string>(() => anios[0] ?? String(new Date().getFullYear()))
+  // Año elegido a mano (null = el más reciente). Si el elegido deja de estar entre los disponibles
+  // (las órdenes llegan después o cambian), se usa el más reciente en vez de quedarse en uno vacío.
+  const [elegido, setAnio] = useState<string | null>(null)
+  const anio = elegido && anios.includes(elegido) ? elegido : (anios[0] ?? String(new Date().getFullYear()))
 
   const porAnio = useMemo(
     () =>
@@ -134,11 +138,7 @@ export function Estadisticas({ ordenes }: { ordenes: Orden[] }) {
   const dentro9 = useMemo(() => {
     const cs = ordenes.filter((o) => o.fecha_cierre?.startsWith(anio) && o.fecha_primera_actuacion)
     if (!cs.length) return null
-    const ok = cs.filter((o) => {
-      const lim = new Date(o.fecha_primera_actuacion!)
-      lim.setMonth(lim.getMonth() + 9)
-      return Date.parse(o.fecha_cierre!) <= lim.getTime()
-    }).length
+    const ok = cs.filter((o) => cerradaDentroDe9Meses(o.fecha_primera_actuacion!, o.fecha_cierre!)).length
     return Math.round((ok / cs.length) * 100)
   }, [ordenes, anio])
 

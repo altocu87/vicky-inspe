@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { usePlazosCtx } from '../hooks'
 import { fmtCorta, label, textoDias, type Orden } from '../lib/ordenes'
-import { plazoDe, type PlazoCalc } from '../lib/plazos/motor'
+import { plazoActivoDe, type PlazoCalc } from '../lib/plazos/motor'
 import { ESTADO_CLASE } from './estados'
 import { BotonProgramar, BotonVerCalendario, MarcaInhabil } from './plazos'
 import { useAgenda } from '../state/agenda'
@@ -156,8 +156,8 @@ export function ListaMovil({ ordenes, onOpen }: { ordenes: Orden[]; onOpen: (o: 
     <ul className="mlist" data-tour="lista">
       {ordenes.map((o) => {
         const fin = o.estado === 'FINALIZADA'
-        const p9 = plazoDe(o, 'lim9', ctx)
-        const ps = plazoDe(o, 'sig', ctx)
+        const p9 = plazoActivoDe(o, 'lim9', ctx)
+        const ps = plazoActivoDe(o, 'sig', ctx)
         const otros = fin ? [] : proximoOtros(o, ctx)
         return (
           <li key={o.id}>

@@ -1,7 +1,7 @@
 // Columnas de la tabla de órdenes (datos, sin componentes exportados: así funciona la recarga rápida)
 import type { ReactNode } from 'react'
 import { fmtCorta, label, type Orden } from '../lib/ordenes'
-import { plazoDe, proximoPlazo, type ContextoPlazos, type PlazoCalc } from '../lib/plazos/motor'
+import { plazoActivoDe, plazoDe, proximoPlazo, type ContextoPlazos, type PlazoCalc } from '../lib/plazos/motor'
 import type { Evento } from '../lib/eventos'
 import { ESTADO_CLASE } from './estados'
 import { Dias, ProximaVisita, SiNoCell } from './celdas'
@@ -65,7 +65,7 @@ export const COLUMNAS: Col[] = [
     label: 'Límite 9 meses',
     short: 'Límite 9 m',
     width: 168,
-    render: (o, ctx) => <Dias p={plazoDe(o, 'lim9', ctx)} fin={o.estado === 'FINALIZADA'} />,
+    render: (o, ctx) => <Dias p={plazoActivoDe(o, 'lim9', ctx)} fin={o.estado === 'FINALIZADA'} />,
   },
   { key: 'fecha_ultima_actuacion', label: 'Última actuación', short: 'Últ. act.', width: 96, render: (o) => fmtCorta(o.fecha_ultima_actuacion) },
   {
@@ -73,7 +73,7 @@ export const COLUMNAS: Col[] = [
     label: 'Límite siguiente actuación',
     short: 'Límite sig.',
     width: 168,
-    render: (o, ctx) => <Dias p={plazoDe(o, 'sig', ctx)} fin={o.estado === 'FINALIZADA'} />,
+    render: (o, ctx) => <Dias p={plazoActivoDe(o, 'sig', ctx)} fin={o.estado === 'FINALIZADA'} />,
   },
   {
     key: 'prox',

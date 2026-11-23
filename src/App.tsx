@@ -8,7 +8,7 @@ import { FESTIVOS_ALBACETE } from './lib/festivosAlbacete'
 import { mapaFestivos, type Festivo } from './lib/habiles'
 import { contarEstados, nombreFiltro, pasaFiltros, type Filtro } from './lib/filtros'
 import { ESTADOS, diasMinimos, fmtCorta, type Orden } from './lib/ordenes'
-import { plazoDe, proximoPlazo, type ContextoPlazos } from './lib/plazos/motor'
+import { plazoActivoDe, proximoPlazo, type ContextoPlazos } from './lib/plazos/motor'
 import { combinarReglas, type ReglaFila } from './lib/plazos/reglas'
 import { leerRuta, type Ruta } from './lib/ruta'
 import { irA } from './nav'
@@ -64,9 +64,9 @@ function valorOrden(o: Orden, k: SortKey, ctx: ContextoPlazos, prox: ReadonlyMap
     case 'urgencia':
       return diasMinimos(o, ctx)
     case 'lim9':
-      return plazoDe(o, 'lim9', ctx)?.fecha ?? null
+      return plazoActivoDe(o, 'lim9', ctx)?.fecha ?? null
     case 'sig':
-      return plazoDe(o, 'sig', ctx)?.fecha ?? null
+      return plazoActivoDe(o, 'sig', ctx)?.fecha ?? null
     case 'prox':
       return o.estado === 'FINALIZADA' ? null : (proximoPlazo(o, ctx)?.fecha ?? null)
     case 'estado':
@@ -84,7 +84,7 @@ function exportarCsv(rows: Orden[], ctx: ContextoPlazos, prox: ReadonlyMap<strin
       return v ? `${fmtCorta(v.fecha)}${v.todo_el_dia ? '' : ' ' + textoHora(v)}` : ''
     }
     if (k === 'lim9' || k === 'sig') {
-      const p = plazoDe(o, k, ctx)
+      const p = plazoActivoDe(o, k, ctx)
       return p ? fmtCorta(p.fecha) : ''
     }
     if (k === 'prox') {
@@ -158,6 +158,8 @@ function SortMenu({ actual, onPick, conTexto }: { actual: string; onPick: (id: s
 
 export default function App() {
   const [session, setSession] = useState<Session | null | undefined>(undefined)
+  // Aviso para la pantalla de entrada si al cerrar sesión algo no fue del todo bien
+  const [avisoSalida, setAvisoSalida] = useState<string | undefined>(undefined)
 
   useEffect(() => {
     let quitar = () => {}
@@ -180,15 +182,17 @@ export default function App() {
         <span />
       </div>
     )
-  if (!session) return <Login />
-  return <Panel email={session.user.email ?? ''} />
+  if (!session) return <Login aviso={avisoSalida} />
+  return <Panel email={session.user.email ?? ''} onAvisoSalida={setAvisoSalida} />
 }
 
-function Panel({ email }: { email: string }) {
+function Panel({ email, onAvisoSalida }: { email: string; onAvisoSalida: (aviso: string) => void }) {
   const mobile = useMobile()
   const [ordenes, setOrdenes] = useState<Orden[]>([])
   const [loading, setLoading] = useState(true)
   const [festivos, setFestivos] = useState<Festivo[]>([])
+  /** true si no se pudieron leer los festivos guardados y se están usando los de serie */
+  const [festivosDeSerie, setFestivosDeSerie] = useState(false)
   const [reglasFilas, setReglasFilas] = useState<ReglaFila[]>([])
   // Filtros: UN solo estado para tabla, tarjetas y calendario
   const [q, setQ] = useState('')
@@ -242,9 +246,11 @@ function Panel({ email }: { email: string }) {
     const [f, r] = await Promise.all([b.listarFestivos(`${anio - 1}-01-01`, `${anio + 2}-12-31`), b.listarReglas()])
     // Si aún no existen las tablas o falla la red, se usan los festivos incluidos en la app
     setFestivos(f.error === null ? f.data : [...FESTIVOS_ALBACETE])
+    setFestivosDeSerie(f.error !== null)
+    if (f.error !== null) showSnack({ msg: 'No se pudieron cargar los festivos; se usan los de serie: ' + f.error, err: true })
     setReglasFilas(r.error === null ? r.data : [])
     if (f.error !== null || r.error !== null) console.warn('Configuración del calendario no disponible; se usan los valores por defecto')
-  }, [])
+  }, [showSnack])
 
   useEffect(() => {
     cargar()
@@ -372,10 +378,32 @@ function Panel({ email }: { email: string }) {
 
   const sortActual = SORTS_MOVIL.find((s) => s.sort.key === sort.key && s.sort.dir === sort.dir)?.id ?? ''
   const enCal = pantalla === 'calendario'
-  const salir = async () => (await api()).salir()
+  const salir = async () => {
+    const aviso = await (await api()).salir()
+    if (aviso) {
+      onAvisoSalida(aviso)
+      showSnack({ msg: aviso, err: true })
+    }
+  }
 
   const enStats = pantalla === 'stats'
   const enLista = !enCal && !enStats
+  // Atajo «/» para ir al buscador en Órdenes y Estadísticas (en el Calendario ya lo gestiona él).
+  // No salta si se está escribiendo en un campo o hay una ventana abierta.
+  useEffect(() => {
+    if (mobile || enCal) return
+    const h = (e: KeyboardEvent) => {
+      if (e.key !== '/' || e.ctrlKey || e.metaKey || e.altKey) return
+      if ((e.target as HTMLElement).closest('input, textarea, select, [contenteditable], dialog')) return
+      if (document.querySelector('dialog[open]')) return
+      const buscar = document.getElementById('buscar')
+      if (!buscar) return
+      e.preventDefault()
+      buscar.focus()
+    }
+    document.addEventListener('keydown', h)
+    return () => document.removeEventListener('keydown', h)
+  }, [mobile, enCal])
   const seccion = enCal ? 'Calendario' : enStats ? 'Estadísticas' : 'Órdenes'
   /** Las tarjetas de acceso abren su pantalla; si ya estás en ella, vuelven a Órdenes */
   const irSeccion = (p: 'calendario' | 'stats') => irA({ pantalla: pantalla === p ? 'lista' : p })
@@ -456,7 +484,7 @@ function Panel({ email }: { email: string }) {
       <PlazosCtx.Provider value={ctx}>
         <AgendaCtx.Provider value={agenda}>
           <Suspense fallback={CARGANDO}>
-            <Ajustes festivos={festivos} reglas={reglas} onBack={volver} onCambio={cargarConfig} avisar={(msg, err) => showSnack({ msg, err })} />
+            <Ajustes festivos={festivos} festivosDeSerie={festivosDeSerie} reglas={reglas} onBack={volver} onCambio={cargarConfig} avisar={(msg, err) => showSnack({ msg, err })} />
           </Suspense>
           {snack && <SnackBar snack={snack} cerrar={() => setSnack(null)} />}
         </AgendaCtx.Provider>
@@ -564,7 +592,7 @@ function Panel({ email }: { email: string }) {
                   <label className="search compacta" data-tour="buscar">
                     <span className="icon">search</span>
                     <span className="sr-only">Buscar</span>
-                    <input id="buscar" value={q} onChange={(e) => buscarTexto(e.target.value)} placeholder="Buscar… ( / )" title="Buscar nº, empresa, objeto, tareas…" type="search" enterKeyHint="search" />
+                    <input id="buscar" value={q} onChange={(e) => buscarTexto(e.target.value)} placeholder={mobile ? 'Buscar…' : 'Buscar… ( / )'} title="Buscar nº, empresa, objeto, tareas…" type="search" enterKeyHint="search" />
                     {q && (
                       <button className="icon-btn" onClick={() => setQ('')} aria-label="Borrar búsqueda">
                         <span className="icon">close</span>
