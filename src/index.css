@@ -321,6 +321,18 @@ button, input, textarea, select { font: inherit; color: inherit; }
   0%, 100% { border-radius: 42% 58% 63% 37% / 41% 44% 56% 59%; }
   50% { border-radius: 63% 37% 38% 62% / 55% 61% 39% 45%; }
 }
+/* Aviso de error al cargar (con «Reintentar»): en lugar del estado vacío, o encima si ya había datos */
+.aviso-carga {
+  display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  margin: 24px auto; max-width: 720px; padding: 20px 24px;
+  border-radius: var(--shape-l); background: var(--error-container); color: var(--on-error-container);
+}
+.aviso-carga > .icon { font-size: 36px; }
+.aviso-carga > div { flex: 1 1 240px; }
+.aviso-carga p { margin: 0; }
+.aviso-carga .title-m { margin-bottom: 4px; }
+.aviso-carga.compacto { margin: 8px auto 16px; padding: 12px 16px; }
+.aviso-carga.compacto > .icon { font-size: 28px; }
 .loader { display: grid; place-items: center; padding: 80px 0; }
 .loader span {
   width: 48px; height: 48px; background: var(--primary);

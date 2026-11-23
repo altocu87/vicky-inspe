@@ -175,6 +175,8 @@ function Panel({ email }: { email: string }) {
   const mobile = useMobile()
   const [ordenes, setOrdenes] = useState<Orden[]>([])
   const [loading, setLoading] = useState(true)
+  // Si falla la carga de las órdenes, se dice claramente (no se confunde con «no hay órdenes»)
+  const [errorCarga, setErrorCarga] = useState<string | null>(null)
   const [festivos, setFestivos] = useState<Festivo[]>([])
   const [reglasFilas, setReglasFilas] = useState<ReglaFila[]>([])
   // Filtros: UN solo estado para tabla, tarjetas y calendario
@@ -215,11 +217,24 @@ function Panel({ email }: { email: string }) {
   }, [])
 
   const cargar = useCallback(async () => {
-    const { data, error } = await (await api()).listarOrdenes()
-    if (error !== null) showSnack({ msg: 'Error al cargar: ' + error, err: true })
-    else setOrdenes(data)
-    setLoading(false)
-  }, [showSnack])
+    try {
+      const { data, error } = await (await api()).listarOrdenes()
+      if (error !== null) setErrorCarga(error)
+      else {
+        setOrdenes(data)
+        setErrorCarga(null)
+      }
+    } catch {
+      setErrorCarga('No hay conexión con el servidor.')
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+  function reintentar() {
+    setLoading(true)
+    setErrorCarga(null)
+    cargar()
+  }
 
   // Festivos (del año pasado al siguiente) y reglas de plazo guardadas en Ajustes
   const cargarConfig = useCallback(async () => {
@@ -587,11 +602,26 @@ function Panel({ email }: { email: string }) {
             </div>
           </div>
         )}
+        {!loading && errorCarga !== null && (
+          <div className={`aviso-carga${ordenes.length ? ' compacto' : ''}`} role="alert">
+            <span className="icon">cloud_off</span>
+            <div>
+              <p className="title-m">No se pudieron cargar las órdenes</p>
+              <p className="body-m">
+                {errorCarga} {ordenes.length ? 'Lo que ves puede no estar al día.' : 'Tus datos no se han perdido: comprueba la conexión y vuelve a intentarlo.'}
+              </p>
+            </div>
+            <button className="btn filled" onClick={reintentar}>
+              <span className="icon">refresh</span>
+              Reintentar
+            </button>
+          </div>
+        )}
         {loading ? (
           <div className="loader">
             <span />
           </div>
-        ) : enStats ? (
+        ) : errorCarga !== null && ordenes.length === 0 && enLista ? null : enStats ? (
           <Estadisticas ordenes={ordenes} />
         ) : enCal ? (
           <Suspense
