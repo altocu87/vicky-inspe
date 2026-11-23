@@ -26,9 +26,9 @@ export function ConfirmDelete({ orden, onCancel, onConfirm }: { orden: Orden; on
           </h2>
           <p className="body-m muted" style={{ margin: 0 }}>
             Se eliminará la orden <strong className="mono">{orden.num_orden}</strong> de <strong>{orden.empresa}</strong>
+            , con sus visitas, citas y tareas.
             <br />
-            Podrás deshacerlo
-            durante unos segundos.
+            Podrás deshacerlo durante unos segundos, pero <strong>su historial de cambios se borra y no se puede recuperar</strong>.
           </p>
         </div>
         <div className="dlg-foot" style={{ borderTop: 0, justifyContent: 'flex-end' }}>

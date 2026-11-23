@@ -69,6 +69,9 @@ export class Recientes {
   add(id: string, ahora = Date.now()) {
     this.m.set(id, ahora)
   }
+  quitar(id: string) {
+    this.m.delete(id)
+  }
   /** Ids vistos desde `desde` (o en los últimos `ms`) */
   conjunto(desde?: number, ahora = Date.now()): Set<string> {
     for (const [k, t] of this.m) if (ahora - t > this.ms) this.m.delete(k)

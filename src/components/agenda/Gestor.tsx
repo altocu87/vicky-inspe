@@ -8,6 +8,8 @@ import { hoyIso } from '../../lib/fechas'
 import type { MapaFestivos } from '../../lib/habiles'
 import type { Orden } from '../../lib/ordenes'
 import { proximoHuecoVisita, visitasPorDia } from '../../lib/semana'
+import { restaurarEventos, restaurarTareas, textoFallos } from '../../lib/restaurar'
+import { api } from '../../data/api'
 import { cambiosAlHacer, tareaNueva, type Tarea, type TareaInput } from '../../lib/tareas'
 import { hayPropuesta, propuestaAlMarcar, type PropuestaOrden, type Resultado } from '../../lib/visitaEstado'
 import { EventoForm, type ModoSerie } from './EventoForm'
@@ -140,25 +142,33 @@ export function GestorAgenda({
       return
     }
     if (!window.confirm(e.rrule ? '¿Eliminar TODA la serie?' : '¿Eliminar esta cita?')) return
-    const { id, created_at, updated_at, ...copia } = e
-    void id
-    void created_at
-    void updated_at
+    // Una serie se borra con sus excepciones (días cambiados o marcados): se copian antes para poder deshacer
+    let excepciones: Evento[] = []
+    if (e.rrule) {
+      excepciones = ag.eventos.filter((x) => x.serie_id === e.id)
+      if (e.orden_id) {
+        // Con orden: se piden todas a la base de datos (en memoria puede que solo estén las del mes visible)
+        const r = await (await api()).listarAgendaOrden(e.orden_id).catch(() => null)
+        if (!r || r.error !== null) return avisar('No se ha eliminado: no se pudo preparar el «Deshacer». Inténtalo de nuevo.', true)
+        excepciones = r.data.eventos.filter((x) => x.serie_id === e.id)
+      }
+    }
     if (await ag.eliminarEvento(e.id)) {
       cerrar()
-      avisar('Eliminada', false, () => ag.crearEvento(copia))
+      avisar(e.rrule ? 'Serie eliminada' : 'Eliminada', false, async () => {
+        const fallos = await restaurarEventos([e, ...excepciones], ag.crearEvento)
+        avisar(fallos ? `Restaurada a medias: ${textoFallos(fallos)}` : e.rrule ? 'Serie restaurada' : 'Restaurada', fallos > 0)
+      })
     }
   }
 
   async function eliminarTarea(t: Tarea) {
     if (!window.confirm('¿Eliminar esta tarea?')) return
-    const { id, created_at, updated_at, ...copia } = t
-    void id
-    void created_at
-    void updated_at
     if (await ag.eliminarTarea(t.id)) {
       cerrar()
-      avisar('Tarea eliminada', false, () => ag.crearTarea(copia))
+      avisar('Tarea eliminada', false, async () => {
+        if (await restaurarTareas([t], ag.crearTarea)) avisar('No se pudo restaurar la tarea', true)
+      })
     }
   }
 

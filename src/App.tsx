@@ -11,6 +11,7 @@ import { plazoDe, proximoPlazo, type ContextoPlazos } from './lib/plazos/motor'
 import { combinarReglas, type ReglaFila } from './lib/plazos/reglas'
 import { leerRuta, type Ruta } from './lib/ruta'
 import { Recientes, sustituir } from './lib/juntar'
+import { restaurarEventos, restaurarTareas, textoFallos } from './lib/restaurar'
 import { irA } from './nav'
 import { Login } from './components/Login'
 import { Logo } from './components/Logo'
@@ -348,8 +349,10 @@ function Panel({ email }: { email: string }) {
   }
   async function eliminarOrden(o: Orden) {
     const b = await api()
-    // Sus visitas y tareas se borran con ella (en cascada): se guardan antes para poder deshacer
+    // Sus visitas y tareas se borran con ella (en cascada): se copian ANTES para poder deshacer.
+    // Si la copia falla, no se borra (si no, «Deshacer» no podría recuperarlas).
     const suyas = await b.listarAgendaOrden(o.id)
+    if (suyas.error !== null && agenda.disponible) return showSnack({ msg: 'No se ha eliminado: no se pudo hacer copia de sus visitas y tareas. Inténtalo de nuevo.', err: true })
     const err = await b.eliminarOrden(o.id)
     if (err) return showSnack({ msg: 'No se pudo eliminar: ' + err, err: true })
     ordBorradas.current.add(o.id)
@@ -364,38 +367,24 @@ function Panel({ email }: { email: string }) {
       },
     })
     async function restaurar() {
-          const { updated_at, ...rest } = o
-          void updated_at
-          const { data, error } = await b.crearOrden(rest)
-          if (error !== null) return showSnack({ msg: 'No se pudo restaurar: ' + error, err: true })
-          ordTocadas.current.add(data.id)
-          setOrdenes((prev) => [data, ...prev])
-          if (suyas.error === null) {
-            // Primero las citas normales y las series; luego las excepciones (apuntan a su serie, con id nuevo)
-            const ids = new Map<string, string>()
-            for (const e of suyas.data.eventos.filter((x) => !x.serie_id)) {
-              const { id, created_at, updated_at, ...resto } = e
-              void created_at
-              void updated_at
-              const n = await agenda.crearEvento({ ...resto, orden_id: data.id })
-              if (n) ids.set(id, n.id)
-            }
-            for (const e of suyas.data.eventos.filter((x) => x.serie_id && ids.has(x.serie_id))) {
-              const { id, created_at, updated_at, ...resto } = e
-              void id
-              void created_at
-              void updated_at
-              await agenda.crearEvento({ ...resto, orden_id: data.id, serie_id: ids.get(e.serie_id!)! })
-            }
-            for (const t of suyas.data.tareas) {
-              const { id, created_at, updated_at, ...resto } = t
-              void id
-              void created_at
-              void updated_at
-              await agenda.crearTarea({ ...resto, orden_id: data.id })
-            }
-          }
-          showSnack({ msg: 'Orden restaurada' })
+      // Se recrea con el MISMO id (los enlaces a la orden siguen valiendo)
+      const { updated_at, ...rest } = o
+      void updated_at
+      const { data, error } = await b.crearOrden(rest)
+      if (error !== null) return showSnack({ msg: 'No se pudo restaurar: ' + error, err: true })
+      ordBorradas.current.quitar(data.id)
+      ordTocadas.current.add(data.id)
+      setOrdenes((prev) => [data, ...prev])
+      let fallos = 0
+      if (suyas.error === null) {
+        fallos += await restaurarEventos(suyas.data.eventos, agenda.crearEvento, { orden_id: data.id })
+        fallos += await restaurarTareas(suyas.data.tareas, agenda.crearTarea, { orden_id: data.id })
+      }
+      showSnack(
+        fallos
+          ? { msg: `Orden restaurada, pero ${textoFallos(fallos)}. El historial de cambios no se recupera.`, err: true }
+          : { msg: 'Orden restaurada (sin su historial de cambios)' },
+      )
     }
   }
 
