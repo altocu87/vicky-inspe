@@ -227,7 +227,7 @@ export function crearBackendSupabase(supabase: SupabaseClient): Backend {
       if (error || !data) return { data: null, error: 'La solicitud de acceso no es válida o ha caducado. Vuelve a conectar desde ChatGPT.' }
       if (!('authorization_id' in data)) return ok({ tipo: 'volver', url: data.redirect_url })
       const d = data as OAuthAuthorizationDetails
-      return ok({ tipo: 'pedir', cliente: d.client?.name || 'Asistente sin nombre', redirectUri: d.redirect_uri, email: d.user?.email ?? '' })
+      return ok({ tipo: 'pedir', cliente: d.client?.name || 'Asistente sin nombre', clienteId: d.client?.id ?? '', redirectUri: d.redirect_uri, email: d.user?.email ?? '' })
     },
     async oauthDecidir(authorizationId, permitir) {
       const r = permitir

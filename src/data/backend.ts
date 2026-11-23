@@ -62,7 +62,7 @@ export interface Backend {
 
 /** Lo que pide un asistente al conectarse */
 export type DetallesPermiso =
-  | { tipo: 'pedir'; cliente: string; redirectUri: string; email: string }
+  | { tipo: 'pedir'; cliente: string; clienteId: string; redirectUri: string; email: string }
   | { tipo: 'volver'; url: string }
 
 /** Un asistente con permiso concedido */

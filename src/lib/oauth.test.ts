@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { leerAuthorizationId, vueltaPermitida } from './oauth'
+import { clientePermitido, leerAuthorizationId, leerClientesPermitidos, vueltaPermitida } from './oauth'
 
 describe('pantalla de permiso de ChatGPT', () => {
   it('solo deja volver a ChatGPT por https', () => {
@@ -24,5 +24,16 @@ describe('pantalla de permiso de ChatGPT', () => {
     expect(leerAuthorizationId('?authorization_id=abcd1234-ef')).toBe('abcd1234-ef')
     expect(leerAuthorizationId('?authorization_id=<script>')).toBeNull()
     expect(leerAuthorizationId('')).toBeNull()
+  })
+  it('solo se acepta el asistente cuyo id está en la lista (VITE_OAUTH_CLIENTES)', () => {
+    const lista = leerClientesPermitidos(' abc-123 , def-456,,')
+    expect(lista).toEqual(['abc-123', 'def-456'])
+    expect(clientePermitido('abc-123', lista)).toBe(true)
+    expect(clientePermitido('otro', lista)).toBe(false)
+    expect(clientePermitido('', lista)).toBe(false)
+    expect(clientePermitido(undefined, lista)).toBe(false)
+    // Lista vacía: ninguno (hay que configurarla antes de conectar)
+    expect(leerClientesPermitidos(undefined)).toEqual([])
+    expect(clientePermitido('abc-123', leerClientesPermitidos(''))).toBe(false)
   })
 })

@@ -23,4 +23,21 @@ export function leerAuthorizationId(search: string): string | null {
   return v && /^[A-Za-z0-9_-]{8,200}$/.test(v) ? v : null
 }
 
+/** Lee la lista de asistentes permitidos (ids de cliente OAuth separados por comas, p. ej. VITE_OAUTH_CLIENTES) */
+export function leerClientesPermitidos(texto: string | undefined | null): string[] {
+  return (texto ?? '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+}
+
+/**
+ * ¿Este asistente está en la lista? La dirección de vuelta (chatgpt.com) la comparte CUALQUIER conector
+ * de ChatGPT, también uno hecho por otra persona: por eso además se compara el id del cliente.
+ * Con la lista vacía no se permite ninguno.
+ */
+export function clientePermitido(clientId: string | undefined | null, lista: readonly string[]): boolean {
+  return !!clientId && lista.includes(clientId)
+}
+
 export const RUTA_PERMISO = '/oauth/consent'

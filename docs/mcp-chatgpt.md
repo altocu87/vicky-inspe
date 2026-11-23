@@ -101,4 +101,5 @@ Despliegue (solo con permiso): `npm run build:mcp` y después `supabase function
 3. **Activar en Supabase** → Authentication → OAuth Server: *Enable*, *Allow dynamic client registration* y *Authorization path* = `/oauth/consent` (la *Site URL* ya es `https://vicky-inspe.vercel.app`).
 4. **Publicar la función** `mcp` (`verify_jwt = false`).
 5. **Conectar desde ChatGPT** y probar con una orden de prueba (que luego quitarás tú).
-6. (Opcional) Fijar `MCP_CLIENTES_PERMITIDOS` con el id de cliente de ChatGPT (lo saco yo de la base de datos una vez conectado).
+5bis. **Antes de conectar** (auditoría #5, 23-11-2026): la pantalla de permiso solo acepta el asistente cuyo id esté en `VITE_OAUTH_CLIENTES` (Vercel). Al intentarlo por primera vez se rechaza y muestra el id: ponlo en esa variable, vuelve a desplegar y conecta otra vez. Luego **desactiva el registro dinámico** (ver `docs/propuestas-bd/ajustes-panel.md`).
+6. Fijar `MCP_CLIENTES_PERMITIDOS` con el mismo id de cliente y aplicar la política por `client_id` (bloque #5 de `docs/propuestas-bd/medios-4-15.sql`). Ya **no** es opcional: el token de otro conector serviría contra la API directa.

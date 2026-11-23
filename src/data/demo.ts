@@ -297,7 +297,7 @@ export const backendDemo: Backend = {
   // Conexión de asistentes: en la demo se simula (nunca llama a ningún servidor de verdad)
   async oauthDetalles(authorizationId) {
     if (authorizationId === 'ya') return { data: { tipo: 'volver', url: 'https://chatgpt.com/connector_platform_oauth_redirect?code=demo' }, error: null }
-    return { data: { tipo: 'pedir', cliente: 'ChatGPT', redirectUri: 'https://chatgpt.com/connector_platform_oauth_redirect', email: 'demo@ejemplo.es' }, error: null }
+    return { data: { tipo: 'pedir', cliente: 'ChatGPT', clienteId: 'demo-chatgpt', redirectUri: 'https://chatgpt.com/connector_platform_oauth_redirect', email: 'demo@ejemplo.es' }, error: null }
   },
   async oauthDecidir(_id, permitir) {
     return { data: `https://chatgpt.com/connector_platform_oauth_redirect?${permitir ? 'code=demo' : 'error=access_denied'}`, error: null }

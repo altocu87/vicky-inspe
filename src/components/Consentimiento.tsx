@@ -1,15 +1,19 @@
 // Pantalla de permiso para conectar ChatGPT (vicky-inspe.vercel.app/oauth/consent).
 // Supabase manda aquí cuando ChatGPT pide acceso. Hay que entrar con el usuario de la app y pulsar «Permitir».
 // Se acepta UNA vez: si ya se dio permiso, vuelve a ChatGPT sola, sin preguntar.
-// Solo se puede volver a ChatGPT (chatgpt.com): cualquier otro programa se rechaza.
+// Solo se puede volver a ChatGPT (chatgpt.com) y SOLO el asistente cuyo id está en VITE_OAUTH_CLIENTES
+// (lista separada por comas, en Vercel). chatgpt.com lo comparte cualquier conector de ChatGPT, también
+// uno hecho por otra persona: por eso se compara además el id. Con la lista vacía se rechaza todo.
 import { useEffect, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
-import { api, type DetallesPermiso } from '../data/api'
-import { leerAuthorizationId, vueltaPermitida } from '../lib/oauth'
+import { api, MODO_DEMO, type DetallesPermiso } from '../data/api'
+import { clientePermitido, leerAuthorizationId, leerClientesPermitidos, vueltaPermitida } from '../lib/oauth'
 import { Login } from './Login'
 import { Logo } from './Logo'
 
 const DESARROLLO = import.meta.env.DEV
+/** Ids de cliente OAuth permitidos (en la demo, también el asistente inventado) */
+const CLIENTES = [...leerClientesPermitidos(import.meta.env.VITE_OAUTH_CLIENTES as string | undefined), ...(MODO_DEMO ? ['demo-chatgpt'] : [])]
 
 type Estado =
   | { fase: 'cargando' }
@@ -74,6 +78,16 @@ function Pedir({ authId, email }: { authId: string; email: string }) {
         // Un programa que no es ChatGPT: se rechaza directamente (sin mandar a ningún sitio)
         await b.oauthDecidir(authId, false)
         return setEstado({ fase: 'error', mensaje: `«${d.cliente}» no es ChatGPT. Por seguridad, solo se puede conectar ChatGPT. No se ha dado acceso.` })
+      }
+      if (!clientePermitido(d.clienteId, CLIENTES)) {
+        // Vuelve a chatgpt.com, pero no es el conector autorizado (podría ser uno hecho por otra persona)
+        await b.oauthDecidir(authId, false)
+        return setEstado({
+          fase: 'error',
+          mensaje: CLIENTES.length
+            ? `Este conector («${d.cliente}») no es el que tienes autorizado. Si no lo has creado tú, no lo uses. No se ha dado acceso. (Id del asistente: ${d.clienteId || 'desconocido'})`
+            : `Todavía no hay ningún asistente autorizado en la app, así que no se ha dado acceso. Si este conector lo has creado tú, añade su id a VITE_OAUTH_CLIENTES en Vercel y vuelve a conectar. (Id del asistente: ${d.clienteId || 'desconocido'})`,
+        })
       }
       setEstado({ fase: 'pedir', d })
     })()

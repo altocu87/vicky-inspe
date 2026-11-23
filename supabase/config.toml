@@ -362,7 +362,9 @@ enabled = true
 # Path for OAuth consent flow UI
 authorization_url_path = "/oauth/consent"
 # Allow dynamic client registration (ChatGPT se registra solo; la pantalla de permiso solo deja volver a chatgpt.com)
-allow_dynamic_registration = true
+# Desactivado: con registro dinámico cualquiera puede dar de alta un conector (auditoría #5).
+# Actívalo solo un momento para conectar ChatGPT por primera vez. El proyecto real se cambia en el panel.
+allow_dynamic_registration = false
 
 # Servidor MCP para ChatGPT. index.js se GENERA con `npm run build:mcp` (desde src/mcp).
 # verify_jwt = false: el propio servidor comprueba el token (si no, la pasarela rechazaría la petición
