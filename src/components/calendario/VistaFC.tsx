@@ -16,7 +16,7 @@ import type { ItemCal } from '../../lib/capas'
 import { toIso } from '../../lib/fechas'
 import { finExclusivo, finInclusivo } from '../../lib/todoElDia'
 import type { MapaFestivos } from '../../lib/habiles'
-import { esDiaVisita, esOficina } from '../../lib/semana'
+import { marcasCabecera, marcasCelda } from '../../lib/marcasDia'
 
 export type VistaFCId = 'dia' | 'semana' | 'mes' | 'anio'
 const VISTA_FC: Record<VistaFCId, string> = { dia: 'timeGridDay', semana: 'timeGridWeek', mes: 'dayGridMonth', anio: 'multiMonthYear' }
@@ -30,8 +30,6 @@ export interface Movimiento {
 }
 
 const hhmm = (d: Date) => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
-/** FullCalendar marca los días con fechas «UTC» (DateMarker): se leen con getUTC* */
-const isoMarcador = (d: Date) => `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`
 
 function aEvento(i: ItemCal): EventInput {
   const conHora = !!i.hora
@@ -90,15 +88,6 @@ export default function VistaFC({
     return () => d.destroy()
   }, [panelPP])
 
-  const marcas = (iso: string) => {
-    const c: string[] = []
-    if (esOficina(iso)) c.push('d-oficina')
-    if (esDiaVisita(iso)) c.push('d-visita')
-    if (festivos.has(iso)) c.push('d-festivo')
-    if (iso === hoy) c.push('d-hoy')
-    return c.join(' ')
-  }
-
   return (
     <div className={`fc-caja v-${vista}`}>
       <FullCalendar
@@ -123,8 +112,8 @@ export default function VistaFC({
         selectable
         selectMirror
         droppable
-        dayCellClass={(a) => marcas(isoMarcador(a.date))}
-        dayHeaderClass={(a) => ('date' in a && a.date instanceof Date ? marcas(isoMarcador(a.date)).replace(/\bd-/g, 'dh-') : '')}
+        dayCellClass={(a) => marcasCelda(a.date, festivos, hoy)}
+        dayHeaderClass={(a) => ('date' in a && a.date instanceof Date ? marcasCabecera(a.date, festivos, hoy) : '')}
         eventContent={(a) => {
           // La «sombra» al seleccionar o arrastrar desde fuera no lleva datos propios
           const i = a.event.extendedProps.item as ItemCal | undefined
