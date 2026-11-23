@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { ESTADOS, ESTADOS_DOCUM, ESTADOS_VISITA, LABELS, MAX_TEXTO, ORDEN_VACIA, textoDemasiadoLargo, SI_NO, type Orden, type OrdenInput, type SiNo } from '../lib/ordenes'
 import { api } from '../data/api'
+import { numeroRepetido } from '../lib/filtros'
 import { usePlazosCtx } from '../hooks'
 import { NOMBRE_CAMPO } from '../lib/plazos/reglas'
 import { plazosDe } from '../lib/plazos/motor'
@@ -19,6 +20,8 @@ type Props = {
   onSaved: (o: Orden, nueva: boolean) => void
   onDelete: (o: Orden) => void
   onError: (msg: string) => void
+  /** Todas las órdenes cargadas (para avisar si el nº ya existe) */
+  todas?: readonly Orden[]
 }
 
 function Seg<T extends string>({
@@ -118,7 +121,7 @@ const SUBIDAS: { k: 'comparecencia_subida' | 'doc_subida' | 'claves'; label: str
   { k: 'claves', label: 'Claves' },
 ]
 
-export function OrdenForm({ orden, onClose, onSaved, onDelete, onError }: Props) {
+export function OrdenForm({ orden, onClose, onSaved, onDelete, onError, todas = [] }: Props) {
   const ref = useRef<HTMLDialogElement>(null)
   const datePick = useRef<HTMLInputElement>(null)
   const [inicial] = useState<OrdenInput>(() => (orden ? { ...orden } : { ...ORDEN_VACIA }))
@@ -147,7 +150,9 @@ export function OrdenForm({ orden, onClose, onSaved, onDelete, onError }: Props)
   const setTxt = (k: keyof OrdenInput) => (v: string) => set(k, (v === '' ? null : v) as never)
 
   const dirty = JSON.stringify(f) !== JSON.stringify(inicial)
-  const errNum = tried && !f.num_orden.trim() ? 'Obligatorio' : null
+  // Nº repetido: se avisa al escribirlo, sin esperar a guardar
+  const repetida = numeroRepetido(f.num_orden, todas, orden?.id, orden?.num_orden)
+  const errNum = tried && !f.num_orden.trim() ? 'Obligatorio' : repetida ? `Ya existe una orden con este nº (${repetida.empresa})` : null
   const errEmp = tried && !f.empresa.trim() ? 'Obligatorio' : null
 
   function cerrar() {
@@ -171,6 +176,7 @@ export function OrdenForm({ orden, onClose, onSaved, onDelete, onError }: Props)
     e.preventDefault()
     setTried(true)
     if (!f.num_orden.trim() || !f.empresa.trim()) return
+    if (repetida) return onError(`Ya existe otra orden con el nº ${repetida.num_orden}. Cambia el nº o abre la que ya existe.`)
     // Textos que pasan del límite (p. ej. heredados del Excel): se marcan en rojo y no se guarda
     if (textoDemasiadoLargo(f)) return onError('Hay un texto demasiado largo (marcado en rojo). Acórtalo para poder guardar.')
     setSaving(true)

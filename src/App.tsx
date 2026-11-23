@@ -706,6 +706,7 @@ function Panel({ email }: { email: string }) {
               setDeleting(o)
             }}
             onError={(msg) => showSnack({ msg, err: true })}
+            todas={ordenes}
           />
         )}
 

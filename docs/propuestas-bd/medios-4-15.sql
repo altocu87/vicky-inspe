@@ -116,3 +116,27 @@ alter table public.ordenes add constraint ordenes_longitud_textos check (
 -- select id, num_orden from public.ordenes where char_length(coalesce(situacion_general, '')) > 4000
 --   or char_length(coalesce(tareas_pendientes, '')) > 4000 or char_length(coalesce(objeto, '')) > 500
 --   or char_length(coalesce(fecha_visita, '')) > 500 or char_length(num_orden) > 40 or char_length(empresa) > 200;
+
+
+-- -------------------------------------------------------------------------------------
+-- #12 · Que no pueda haber dos órdenes con el mismo nº
+-- -------------------------------------------------------------------------------------
+-- La web y ChatGPT ya avisan si el nº existe, pero la base de datos no lo impide (por ejemplo,
+-- si se guardan dos a la vez). Se compara igual que la app: sin mayúsculas y sin espacios a los lados.
+-- (La app además ignora las tildes; los nº de orden no suelen llevarlas, así que no hace falta
+-- instalar la extensión «unaccent».)
+
+-- PASO 1 · Ver si YA hay números repetidos (por ejemplo, heredados del Excel).
+select lower(btrim(num_orden)) as numero, count(*) as veces,
+       string_agg(empresa || ' (' || id || ')', ' | ') as ordenes
+from public.ordenes
+group by lower(btrim(num_orden))
+having count(*) > 1
+order by veces desc;
+
+-- PASO 2 · SOLO si la consulta anterior NO devuelve ninguna fila, crea el índice único.
+-- Si devuelve filas, primero hay que corregir esas órdenes a mano (cambiar el nº o borrar la
+-- duplicada) y volver a hacer el paso 1. Si no, este paso dará error (sin cambiar nada).
+-- Mientras no se aplique, la app funciona igual (solo avisa al escribir el nº).
+create unique index if not exists ordenes_num_orden_unico on public.ordenes (lower(btrim(num_orden)));
+-- Si alguna vez se guardan dos a la vez, la app mostrará «Ya existe un registro igual.».

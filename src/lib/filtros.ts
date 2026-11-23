@@ -12,6 +12,17 @@ export interface Filtros {
 
 export const normal = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
 
+/**
+ * Otra orden con el mismo nº (misma comparación que el servidor MCP: sin tildes, sin mayúsculas y sin
+ * espacios a los lados). `excluir` = la propia orden. Si el nº no cambia respecto a `actual`, no se
+ * comprueba (así se pueden seguir editando órdenes repetidas que vinieron del Excel).
+ */
+export function numeroRepetido(num: string, ordenes: readonly Orden[], excluir?: string, actual?: string): Orden | null {
+  const n = normal(num.trim())
+  if (!n || (actual !== undefined && normal(actual.trim()) === n)) return null
+  return ordenes.find((o) => o.id !== excluir && normal(o.num_orden.trim()) === n) ?? null
+}
+
 export function nivelOrden(o: Orden, ctx: ContextoPlazos): Nivel | null {
   return o.estado === 'FINALIZADA' ? null : peorNivelDe(o, ctx)
 }
