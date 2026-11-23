@@ -83,3 +83,17 @@ export function mensajeError(e: { message?: string; code?: string } | null | und
   if (/fetch|network/i.test(e.message ?? '')) return 'Sin conexión. Inténtalo de nuevo.'
   return e.message ?? 'Error desconocido'
 }
+
+/**
+ * Mensaje del inicio de sesión según el error de Supabase Auth (sin el punto final: lo pone Login).
+ * Antes todo era «Correo o contraseña incorrectos», también sin internet o tras muchos intentos.
+ */
+export function mensajeLogin(e: { name?: string; status?: number; code?: string; message?: string }): string {
+  const msg = e.message ?? ''
+  if (e.name === 'AuthRetryableFetchError' || e.status === 0 || /failed to fetch|fetch failed|network|load failed/i.test(msg))
+    return 'No hay conexión con el servidor. Comprueba internet e inténtalo de nuevo'
+  if (e.status === 429 || e.code === 'over_request_rate_limit' || /rate limit|too many/i.test(msg)) return 'Demasiados intentos. Espera unos minutos y vuelve a probar'
+  if (e.code === 'invalid_credentials' || /invalid login credentials/i.test(msg)) return 'Correo o contraseña incorrectos'
+  if (e.code === 'email_not_confirmed') return 'Tu correo aún no está confirmado'
+  return 'No se pudo entrar ahora mismo. Inténtalo de nuevo en un rato'
+}

@@ -10,7 +10,7 @@ import { CAMPOS_EVENTO, RE_UUID, leerEvento, leerTipo, soloCampos, type Evento, 
 import { CAMPOS_TAREA, leerTarea, type Tarea } from '../lib/tareas'
 import { addDias, esIso } from '../lib/fechas'
 import { leerCambio, type CambioHistorial } from '../lib/historial'
-import { mensajeError, type Backend, type Conexion, type Resultado } from './backend'
+import { mensajeError, mensajeLogin, type Backend, type Conexion, type Resultado } from './backend'
 
 const ok = <T>(data: T): Resultado<T> => ({ data, error: null })
 const ko = <T>(e: { message?: string; code?: string }): Resultado<T> => ({ data: null, error: mensajeError(e) })
@@ -50,8 +50,12 @@ export function crearBackendSupabase(supabase: SupabaseClient): Backend {
       return () => data.subscription.unsubscribe()
     },
     async entrar(email, password) {
-      const { error } = await supabase.auth.signInWithPassword({ email, password })
-      return error ? 'Correo o contraseña incorrectos' : null
+      try {
+        const { error } = await supabase.auth.signInWithPassword({ email, password })
+        return error ? mensajeLogin(error) : null
+      } catch (e) {
+        return mensajeLogin(e instanceof Error ? e : {})
+      }
     },
     async salir() {
       await supabase.auth.signOut()
