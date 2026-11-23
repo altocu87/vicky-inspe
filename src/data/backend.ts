@@ -73,8 +73,15 @@ export interface Conexion {
 }
 
 /** Mensaje de error comprensible, sin detalles internos de la base de datos */
-export function mensajeError(e: { message?: string; code?: string } | null | undefined): string {
+export function mensajeError(e: { message?: string; code?: string; status?: number } | null | undefined): string {
   if (!e) return 'Error desconocido'
+  // Sesión caducada o no válida (PostgREST: PGRST301/PGRST303; Auth: 401, bad_jwt, session_expired…)
+  if (
+    e.status === 401 ||
+    ['PGRST301', 'PGRST303', 'bad_jwt', 'session_expired', 'session_not_found', 'refresh_token_not_found'].includes(e.code ?? '') ||
+    /jwt expired/i.test(e.message ?? '')
+  )
+    return 'Tu sesión ha caducado. Vuelve a entrar.'
   if (e.code === '42501' || /row-level security|permission denied/i.test(e.message ?? '')) return 'No tienes permiso para esta acción. Vuelve a iniciar sesión.'
   if (e.code === '23505') return 'Ya existe un registro igual.'
   if (e.code === '23514') return 'Algún dato no es válido.'

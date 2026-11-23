@@ -238,7 +238,8 @@ export function crearBackendSupabase(supabase: SupabaseClient): Backend {
     },
     async listarConexiones() {
       const { data, error } = await supabase.auth.oauth.listGrants()
-      if (error) return { data: null, error: 'No se pudo leer la lista de conexiones.' }
+      if (error)
+        return { data: null, error: error.status === 404 ? 'La conexión con asistentes aún no está activada.' : 'No se pudo leer la lista de conexiones: ' + mensajeError(error) }
       const lista: Conexion[] = (data ?? []).map((g) => ({ clientId: g.client.id, nombre: g.client.name || 'Asistente sin nombre', desde: g.granted_at }))
       return ok(lista)
     },

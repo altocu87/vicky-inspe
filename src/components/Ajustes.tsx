@@ -547,7 +547,7 @@ function Conexiones({ avisar }: { avisar: (m: string, e?: boolean) => void }) {
       </p>
       <ul className="aj-lista">
         {lista === null && <li className="body-m muted">Cargando…</li>}
-        {lista && lista.length === 0 && <li className="body-m muted">{error ? 'La conexión con asistentes aún no está activada.' : 'Ninguno conectado.'}</li>}
+        {lista && lista.length === 0 && <li className="body-m muted">{error ?? 'Ninguno conectado.'}</li>}
         {lista?.map((c) => (
           <li key={c.clientId} className="aj-fila">
             <span className="aj-txt">
