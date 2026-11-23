@@ -193,17 +193,22 @@ export function OrdenForm({ orden, onClose, onSaved, onDelete, onError }: Props)
       doc_subida: f.doc_subida,
       claves: f.claves,
     }
-    const b = await api()
-    const { data, error } = nueva ? await b.crearOrden(payload) : await b.actualizarOrden(orden.id, payload)
-    setSaving(false)
-    if (error !== null) {
-      onError('No se pudo guardar: ' + error)
-      return
+    try {
+      const b = await api()
+      const { data, error } = nueva ? await b.crearOrden(payload) : await b.actualizarOrden(orden.id, payload)
+      if (error !== null) {
+        onError('No se pudo guardar: ' + error)
+        return
+      }
+      // Visitas elegidas antes de que existiera la orden (si alguna falla, la agenda ya avisa)
+      for (const v of nueva ? visitasNuevas : []) await ag.crearEvento(eventoNuevo({ fecha: v, tipo: 'visita', titulo: 'Visita', orden_id: data.id }))
+      ref.current?.close()
+      onSaved(data, nueva)
+    } catch {
+      onError('No se pudo guardar: no hay conexión con el servidor. Inténtalo de nuevo.')
+    } finally {
+      setSaving(false)
     }
-    // Visitas elegidas antes de que existiera la orden
-    for (const v of nueva ? visitasNuevas : []) await ag.crearEvento(eventoNuevo({ fecha: v, tipo: 'visita', titulo: 'Visita', orden_id: data.id }))
-    ref.current?.close()
-    onSaved(data, nueva)
   }
 
   const fin = f.estado === 'FINALIZADA'

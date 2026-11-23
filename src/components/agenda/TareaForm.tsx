@@ -43,9 +43,14 @@ export function TareaForm({
       repeticion: f.vence ? f.repeticion : 'no',
     }
     setGuardando(true)
-    const ok = await onGuardar(limpio)
-    setGuardando(false)
-    if (ok) onClose()
+    try {
+      const ok = await onGuardar(limpio)
+      if (ok) onClose()
+    } catch {
+      setError('No se pudo guardar: no hay conexión con el servidor. Inténtalo de nuevo.')
+    } finally {
+      setGuardando(false)
+    }
   }
 
   return (

@@ -21,10 +21,15 @@ type Estado =
   | { fase: 'volviendo' }
   | { fase: 'error'; mensaje: string }
 
-function volver(url: string) {
+/** Vuelve a ChatGPT. Devuelve false (y no va a ningún sitio) si la dirección no es de ChatGPT */
+function volver(url: string): boolean {
   // Solo a ChatGPT (doble comprobación: aquí y al leer los detalles)
-  if (vueltaPermitida(url, DESARROLLO)) window.location.replace(url)
+  if (!vueltaPermitida(url, DESARROLLO)) return false
+  window.location.replace(url)
+  return true
 }
+const NO_VUELVE = 'La dirección de vuelta no es de ChatGPT, así que no se ha abierto. Vuelve a ChatGPT y conecta otra vez.'
+const SIN_RED = 'No hay conexión con el servidor. Comprueba internet y vuelve a conectar desde ChatGPT.'
 
 export function Consentimiento() {
   const [session, setSession] = useState<Session | null | undefined>(undefined)
@@ -33,12 +38,14 @@ export function Consentimiento() {
   useEffect(() => {
     let quitar = () => {}
     let vivo = true
-    api().then(async (b) => {
-      const s = await b.sesion()
-      if (!vivo) return
-      setSession(s)
-      quitar = b.alCambiarSesion(setSession)
-    })
+    api()
+      .then(async (b) => {
+        const s = await b.sesion()
+        if (!vivo) return
+        setSession(s)
+        quitar = b.alCambiarSesion(setSession)
+      })
+      .catch(() => vivo && setSession(null))
     return () => {
       vivo = false
       quitar()
@@ -72,7 +79,8 @@ function Pedir({ authId, email }: { authId: string; email: string }) {
         // Ya habías dado permiso antes: se vuelve a ChatGPT sin preguntar
         if (!vueltaPermitida(d.url, DESARROLLO)) return setEstado({ fase: 'error', mensaje: 'La conexión no es de ChatGPT. No se ha dado acceso.' })
         setEstado({ fase: 'volviendo' })
-        return volver(d.url)
+        if (!volver(d.url)) setEstado({ fase: 'error', mensaje: NO_VUELVE })
+        return
       }
       if (!vueltaPermitida(d.redirectUri, DESARROLLO)) {
         // Un programa que no es ChatGPT: se rechaza directamente (sin mandar a ningún sitio)
@@ -90,7 +98,7 @@ function Pedir({ authId, email }: { authId: string; email: string }) {
         })
       }
       setEstado({ fase: 'pedir', d })
-    })()
+    })().catch(() => vivo && setEstado({ fase: 'error', mensaje: SIN_RED }))
     return () => {
       vivo = false
     }
@@ -98,11 +106,16 @@ function Pedir({ authId, email }: { authId: string; email: string }) {
 
   async function decidir(permitir: boolean) {
     setEnviando(true)
-    const r = await (await api()).oauthDecidir(authId, permitir)
-    setEnviando(false)
-    if (r.error !== null) return setEstado({ fase: 'error', mensaje: r.error })
-    setEstado({ fase: 'volviendo' })
-    volver(r.data)
+    try {
+      const r = await (await api()).oauthDecidir(authId, permitir)
+      if (r.error !== null) return setEstado({ fase: 'error', mensaje: r.error })
+      setEstado({ fase: 'volviendo' })
+      if (!volver(r.data)) setEstado({ fase: 'error', mensaje: NO_VUELVE })
+    } catch {
+      setEstado({ fase: 'error', mensaje: SIN_RED })
+    } finally {
+      setEnviando(false)
+    }
   }
 
   if (estado.fase === 'cargando' || estado.fase === 'volviendo')

@@ -34,6 +34,7 @@ export function PreguntaOrden({
   const [primera, setPrimera] = useState(!!p?.primera)
   const [estado, setEstado] = useState(!!p?.estadoVisita)
   const [guardando, setGuardando] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const conOrden = !!(orden && p && hayPropuesta(p))
 
   async function aplicar() {
@@ -45,9 +46,15 @@ export function PreguntaOrden({
     }
     const n = notas.trim() ? notas.trim().slice(0, 4000) : null
     setGuardando(true)
-    const ok = await onAplicar(n !== (notasIniciales ?? null) ? n : notasIniciales, c)
-    setGuardando(false)
-    if (ok) onClose()
+    setError(null)
+    try {
+      const ok = await onAplicar(n !== (notasIniciales ?? null) ? n : notasIniciales, c)
+      if (ok) onClose()
+    } catch {
+      setError('No se pudo guardar: no hay conexión con el servidor. Inténtalo de nuevo.')
+    } finally {
+      setGuardando(false)
+    }
   }
 
   return (
@@ -64,7 +71,7 @@ export function PreguntaOrden({
           <span className="spacer" />
           <button type="button" className="btn filled" disabled={guardando} onClick={aplicar}>
             <span className="icon">save</span>
-            Guardar
+            {guardando ? 'Guardando…' : 'Guardar'}
           </button>
         </>
       }
@@ -123,6 +130,12 @@ export function PreguntaOrden({
             )}
           </div>
         </>
+      )}
+      {error && (
+        <p className="form-error" role="alert">
+          <span className="icon">error</span>
+          {error}
+        </p>
       )}
     </Dialogo>
   )

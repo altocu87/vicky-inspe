@@ -14,6 +14,10 @@ let backend: Promise<Backend> | null = null
 export function api(): Promise<Backend> {
   if (!backend) {
     backend = MODO_DEMO ? import('./demo').then((m) => m.backendDemo) : import('./supabaseBackend').then((m) => m.backendSupabase)
+    // Si falla la descarga (sin conexión), la próxima llamada lo vuelve a intentar
+    backend.catch(() => {
+      backend = null
+    })
   }
   return backend
 }

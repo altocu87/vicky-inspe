@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
-import { api } from './data/api'
+import { api, type Resultado } from './data/api'
 import { PlazosCtx, useMobile, usePref } from './hooks'
 import { addDias, hoyIso } from './lib/fechas'
 import { FESTIVOS_ALBACETE } from './lib/festivosAlbacete'
@@ -149,12 +149,15 @@ export default function App() {
   useEffect(() => {
     let quitar = () => {}
     let vivo = true
-    api().then(async (b) => {
-      const s = await b.sesion()
-      if (!vivo) return
-      setSession(s)
-      quitar = b.alCambiarSesion(setSession)
-    })
+    api()
+      .then(async (b) => {
+        const s = await b.sesion()
+        if (!vivo) return
+        setSession(s)
+        quitar = b.alCambiarSesion(setSession)
+      })
+      // Sin conexión: se enseña el inicio de sesión (que avisará al intentar entrar) en vez de cargar sin fin
+      .catch(() => vivo && setSession(null))
     return () => {
       vivo = false
       quitar()
@@ -238,14 +241,19 @@ function Panel({ email }: { email: string }) {
 
   // Festivos (del año pasado al siguiente) y reglas de plazo guardadas en Ajustes
   const cargarConfig = useCallback(async () => {
-    const b = await api()
-    const hoy = hoyIso()
-    const anio = Number(hoy.slice(0, 4))
-    const [f, r] = await Promise.all([b.listarFestivos(`${anio - 1}-01-01`, `${anio + 2}-12-31`), b.listarReglas()])
-    // Si aún no existen las tablas o falla la red, se usan los festivos incluidos en la app
-    setFestivos(f.error === null ? f.data : [...FESTIVOS_ALBACETE])
-    setReglasFilas(r.error === null ? r.data : [])
-    if (f.error !== null || r.error !== null) console.warn('Configuración del calendario no disponible; se usan los valores por defecto')
+    try {
+      const b = await api()
+      const hoy = hoyIso()
+      const anio = Number(hoy.slice(0, 4))
+      const [f, r] = await Promise.all([b.listarFestivos(`${anio - 1}-01-01`, `${anio + 2}-12-31`), b.listarReglas()])
+      // Si aún no existen las tablas o falla la red, se usan los festivos incluidos en la app
+      setFestivos(f.error === null ? f.data : [...FESTIVOS_ALBACETE])
+      setReglasFilas(r.error === null ? r.data : [])
+      if (f.error !== null || r.error !== null) console.warn('Configuración del calendario no disponible; se usan los valores por defecto')
+    } catch {
+      setFestivos([...FESTIVOS_ALBACETE])
+      console.warn('Sin conexión: se usan los festivos y plazos por defecto')
+    }
   }, [])
 
   useEffect(() => {
@@ -321,6 +329,13 @@ function Panel({ email }: { email: string }) {
 
   async function eliminar(o: Orden) {
     setDeleting(null)
+    try {
+      await eliminarOrden(o)
+    } catch {
+      showSnack({ msg: 'No se pudo completar: no hay conexión con el servidor. Comprueba la lista y vuelve a intentarlo.', err: true })
+    }
+  }
+  async function eliminarOrden(o: Orden) {
     const b = await api()
     // Sus visitas y tareas se borran con ella (en cascada): se guardan antes para poder deshacer
     const suyas = await b.listarAgendaOrden(o.id)
@@ -332,7 +347,11 @@ function Panel({ email }: { email: string }) {
       msg: 'Orden eliminada',
       action: {
         label: 'Deshacer',
-        fn: async () => {
+        fn: () =>
+          restaurar().catch(() => showSnack({ msg: 'No se pudo restaurar del todo: no hay conexión con el servidor. Revisa la orden y su agenda.', err: true })),
+      },
+    })
+    async function restaurar() {
           const { updated_at, ...rest } = o
           void updated_at
           const { data, error } = await b.crearOrden(rest)
@@ -364,9 +383,7 @@ function Panel({ email }: { email: string }) {
             }
           }
           showSnack({ msg: 'Orden restaurada' })
-        },
-      },
-    })
+    }
   }
 
   const statCards: { k: Filtro; label: string; n: number; icon: string; cls?: string }[] = [
@@ -468,7 +485,14 @@ function Panel({ email }: { email: string }) {
     )
 
   async function actualizarOrden(o: Orden, cambios: Partial<Orden>): Promise<boolean> {
-    const { data, error } = await (await api()).actualizarOrden(o.id, cambios)
+    let r: Resultado<Orden>
+    try {
+      r = await (await api()).actualizarOrden(o.id, cambios)
+    } catch {
+      showSnack({ msg: 'No se pudo actualizar la orden: no hay conexión con el servidor.', err: true })
+      return false
+    }
+    const { data, error } = r
     if (error !== null) {
       showSnack({ msg: 'No se pudo actualizar la orden: ' + error, err: true })
       return false

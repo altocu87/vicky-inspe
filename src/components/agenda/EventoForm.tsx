@@ -75,9 +75,14 @@ export function EventoForm({
       notas: f.notas?.trim() || null,
     }
     setGuardando(true)
-    const ok = await onGuardar(limpio, deSerie ? modo : 'serie')
-    setGuardando(false)
-    if (ok) onClose()
+    try {
+      const ok = await onGuardar(limpio, deSerie ? modo : 'serie')
+      if (ok) onClose()
+    } catch {
+      setError('No se pudo guardar: no hay conexión con el servidor. Inténtalo de nuevo.')
+    } finally {
+      setGuardando(false)
+    }
   }
 
   const titulo = id ? 'Editar cita' : f.tipo === 'visita' ? 'Nueva visita' : 'Nueva cita'

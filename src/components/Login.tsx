@@ -14,9 +14,14 @@ export function Login({ aviso }: { aviso?: string } = {}) {
     e.preventDefault()
     setLoading(true)
     setError(null)
-    const error = await (await api()).entrar(email.trim(), password)
-    setLoading(false)
-    if (error) setError(error + '.')
+    try {
+      const error = await (await api()).entrar(email.trim(), password)
+      if (error) setError(error + '.')
+    } catch {
+      setError('No hay conexión con el servidor. Comprueba internet e inténtalo de nuevo.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
