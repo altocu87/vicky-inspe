@@ -14,11 +14,8 @@ import { leerRuta, type Ruta } from './lib/ruta'
 import { irA } from './nav'
 import { Login } from './components/Login'
 import { Logo } from './components/Logo'
-import { Estadisticas } from './components/Estadisticas'
 import { OrdenForm } from './components/OrdenForm'
 import { ConfirmDelete } from './components/ConfirmDelete'
-import { Ajustes } from './components/Ajustes'
-import { Tutorial } from './components/Tutorial'
 import { COLUMNAS, ListaMovil, type Sort, type SortKey } from './components/TablaOrdenes'
 import { FichasOrdenes } from './components/FichasOrdenes'
 import { GestorAgenda } from './components/agenda/Gestor'
@@ -28,6 +25,15 @@ import { textoHora } from './lib/eventos'
 
 // El calendario (y la librería de repeticiones) se descarga solo al abrirlo
 const Calendario = lazy(() => import('./components/calendario/Calendario').then((m) => ({ default: m.Calendario })))
+// Pantallas que no se ven al entrar: se descargan la primera vez que se abren
+const Ajustes = lazy(() => import('./components/Ajustes').then((m) => ({ default: m.Ajustes })))
+const Estadisticas = lazy(() => import('./components/Estadisticas').then((m) => ({ default: m.Estadisticas })))
+const Tutorial = lazy(() => import('./components/Tutorial').then((m) => ({ default: m.Tutorial })))
+const CARGANDO = (
+  <div className="loader">
+    <span />
+  </div>
+)
 
 type Snack = { msg: string; err?: boolean; action?: { label: string; fn: () => void } }
 
@@ -449,7 +455,9 @@ function Panel({ email }: { email: string }) {
     return (
       <PlazosCtx.Provider value={ctx}>
         <AgendaCtx.Provider value={agenda}>
-          <Ajustes festivos={festivos} reglas={reglas} onBack={volver} onCambio={cargarConfig} avisar={(msg, err) => showSnack({ msg, err })} />
+          <Suspense fallback={CARGANDO}>
+            <Ajustes festivos={festivos} reglas={reglas} onBack={volver} onCambio={cargarConfig} avisar={(msg, err) => showSnack({ msg, err })} />
+          </Suspense>
           {snack && <SnackBar snack={snack} cerrar={() => setSnack(null)} />}
         </AgendaCtx.Provider>
       </PlazosCtx.Provider>
@@ -595,7 +603,9 @@ function Panel({ email }: { email: string }) {
             <span />
           </div>
         ) : enStats ? (
-          <Estadisticas ordenes={ordenes} />
+          <Suspense fallback={CARGANDO}>
+            <Estadisticas ordenes={ordenes} />
+          </Suspense>
         ) : enCal ? (
           <Suspense
             fallback={
@@ -659,7 +669,11 @@ function Panel({ email }: { email: string }) {
 
         {snack && <SnackBar snack={snack} cerrar={() => setSnack(null)} />}
 
-        {tutorial && <Tutorial ruta={ruta} onClose={() => setTutorial(false)} />}
+        {tutorial && (
+          <Suspense fallback={null}>
+            <Tutorial ruta={ruta} onClose={() => setTutorial(false)} />
+          </Suspense>
+        )}
 
       </div>
       </GestorAgenda>
