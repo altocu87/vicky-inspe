@@ -334,6 +334,7 @@ export function OrdenForm({ orden, onClose, onSaved, onDelete, onError }: Props)
                           type="button"
                           className="icon-btn"
                           aria-label={t.hecha ? `Marcar «${t.titulo}» como no hecha` : `Marcar «${t.titulo}» como hecha`}
+                          disabled={acc.tareasEnCurso.has(t.id)}
                           onClick={() => acc.alternarTarea(t)}
                         >
                           <span className="icon">{t.hecha ? 'check_box' : 'check_box_outline_blank'}</span>
