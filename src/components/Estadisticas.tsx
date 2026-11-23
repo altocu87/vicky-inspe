@@ -105,7 +105,10 @@ export function Estadisticas({ ordenes }: { ordenes: Orden[] }) {
     })
     return [...s].sort().reverse()
   }, [ordenes])
-  const [anio, setAnio] = useState<string>(() => anios[0] ?? String(new Date().getFullYear()))
+  // Año elegido a mano (null = el más reciente). Si el elegido deja de estar entre los disponibles
+  // (las órdenes llegan después o cambian), se usa el más reciente en vez de quedarse en uno vacío.
+  const [elegido, setAnio] = useState<string | null>(null)
+  const anio = elegido && anios.includes(elegido) ? elegido : (anios[0] ?? String(new Date().getFullYear()))
 
   const porAnio = useMemo(
     () =>
