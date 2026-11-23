@@ -39,9 +39,9 @@ function todas<T>(d: unknown[] | null, n: number, leer: (x: unknown) => T | null
   const out = (d ?? []).map(leer)
   return out.length === n && out.every((x) => x !== null) ? ok(out as T[]) : { data: null, error: 'Respuesta no válida' }
 }
-/** Solo fechas válidas en los filtros (se construyen como texto) */
-function fechas(...f: string[]) {
-  if (!f.every(esIso)) throw new Error('Fecha no válida')
+/** Solo fechas válidas en los filtros (se construyen como texto). Devuelve el error, o null si todas valen */
+function fechas(...f: string[]): Resultado<never> | null {
+  return f.every(esIso) ? null : { data: null, error: 'Fecha no válida' }
 }
 
 export function crearBackendSupabase(supabase: SupabaseClient): Backend {
@@ -116,7 +116,8 @@ export function crearBackendSupabase(supabase: SupabaseClient): Backend {
 
     // ---------- Fase 2 ----------
     async listarEventos(desde, hasta) {
-      fechas(desde, hasta)
+      const mal = fechas(desde, hasta)
+      if (mal) return mal
       // Dentro del rango; o empezó antes y aún dura; o es una serie ya empezada; o es una excepción de un día del rango
       const desdeLargo = addDias(desde, -366)
       const { data, error } = await supabase
@@ -132,7 +133,8 @@ export function crearBackendSupabase(supabase: SupabaseClient): Backend {
       return error ? ko(error) : ok(eventos(data))
     },
     async listarVisitasFuturas(hoy) {
-      fechas(hoy)
+      const mal = fechas(hoy)
+      if (mal) return mal
       const { data, error } = await supabase
         .from('eventos')
         .select(COLS_EVENTO)
@@ -183,7 +185,8 @@ export function crearBackendSupabase(supabase: SupabaseClient): Backend {
       return error ? mensajeError(error) : null
     },
     async listarTareas(desde, hasta) {
-      fechas(desde, hasta)
+      const mal = fechas(desde, hasta)
+      if (mal) return mal
       const { data, error } = await supabase
         .from('tareas')
         .select(COLS_TAREA)
